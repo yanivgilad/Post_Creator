@@ -49,6 +49,9 @@ def _as_source_weights(raw: str | None) -> dict[str, float]:
         "github": 1.1,
         "product_hunt": 1.0,
         "rss": 0.8,
+        "arxiv": 1.2,
+        "deepmind": 0.9,
+        "lobsters": 0.85,
     }
     if raw is None or raw.strip() == "":
         return default
@@ -82,6 +85,9 @@ class Settings:
     enable_github: bool
     enable_product_hunt: bool
     enable_rss: bool
+    enable_arxiv: bool
+    enable_deepmind: bool
+    enable_lobsters: bool
     rss_feeds: list[str]
     reddit_subreddits: list[str]
     keywords: list[str]
@@ -90,6 +96,9 @@ class Settings:
     gemini_api_key: str | None
     github_token: str | None
     product_hunt_token: str | None
+    twitter_prompt_file: str | None
+    linkedin_prompt_file: str | None
+    reddit_prompt_file: str | None
 
     @property
     def supported_article_llm_options(self) -> list[str]:
@@ -123,12 +132,17 @@ def get_settings() -> Settings:
         enable_github=_as_bool(os.getenv("ARTICLE_WRITER_ENABLE_GITHUB"), True),
         enable_product_hunt=_as_bool(os.getenv("ARTICLE_WRITER_ENABLE_PRODUCT_HUNT"), False),
         enable_rss=_as_bool(os.getenv("ARTICLE_WRITER_ENABLE_RSS"), True),
+        enable_arxiv=_as_bool(os.getenv("ARTICLE_WRITER_ENABLE_ARXIV"), True),
+        enable_deepmind=_as_bool(os.getenv("ARTICLE_WRITER_ENABLE_DEEPMIND"), True),
+        enable_lobsters=_as_bool(os.getenv("ARTICLE_WRITER_ENABLE_LOBSTERS"), True),
         rss_feeds=_as_list(
             os.getenv("ARTICLE_WRITER_RSS_FEEDS"),
             [
                 "https://openai.com/news/rss.xml",
                 "https://huggingface.co/blog/feed.xml",
                 "https://simonwillison.net/atom/everything/",
+                "https://lastweekin.ai/feed",
+                "https://www.deeplearning.ai/the-batch/feed/",
             ],
         ),
         reddit_subreddits=_as_list(
@@ -166,4 +180,7 @@ def get_settings() -> Settings:
         gemini_api_key=os.getenv("ARTICLE_WRITER_GEMINI_API_KEY") or None,
         github_token=os.getenv("ARTICLE_WRITER_GITHUB_TOKEN") or None,
         product_hunt_token=os.getenv("ARTICLE_WRITER_PRODUCT_HUNT_TOKEN") or None,
+        twitter_prompt_file=os.getenv("ARTICLE_WRITER_TWITTER_PROMPT_FILE") or None,
+        linkedin_prompt_file=os.getenv("ARTICLE_WRITER_LINKEDIN_PROMPT_FILE") or None,
+        reddit_prompt_file=os.getenv("ARTICLE_WRITER_REDDIT_PROMPT_FILE") or None,
     )

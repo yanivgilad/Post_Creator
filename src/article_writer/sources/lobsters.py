@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from article_writer.config import Settings
+from article_writer.models import SourceItem
+from article_writer.sources.base import SourceAdapter, matches_keywords, parse_datetime, truncate_text
+
+_ENDPOINTS = [
+    "https://lobste.rs/t/ai.json",
+    "https://lobste.rs/t/ml.json",
+]
+
+
+class LobstersSource(SourceAdapter):
+    name = "lobsters"
+
+    def enabled(self, settings: Settings) -> bool:
+        return settings.enable_lobsters
+
+    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+        items: dict[str, SourceItem] = {}
+        for endpoint in _ENDPOINTS:
+            try:
+                stories = self._get_json(endpoint, settings)
+            except Exception:
+                # NOTE: endpoint returned a non-standard or unparseable response
+                continue
+            if not isinstance(stories, list):
+                # NOTE: unexpected top-level format; expected a JSON array of story objects
+                continue
+            for story in stories:
+                title = story.get("title") or ""
+                url = story.get("url") or story.get("short_id_url") or ""
+                if not title or not url:
+                    continue
+                description = story.get("description") or ""
+                if not matches_keywords(f"{title} {description}", settings.keywords):
+                    continue
+                published_at = parse_datetime(story.get("created_at"))
+                if published_at is None or published_at < since:
+                    continue
+                score = float(story.get("score") or 0)
+                comment_count = float(story.get("comment_count") or 0)
+                item = SourceItem(
+                    source_name=self.name,
+                    external_id=story.get("short_id") or url,
+                    title=title,
+                    url=url,
+                    summary=truncate_text(description or title),
+                    author=(story.get("submitter_user") or {}).get("username"),
+                    published_at=published_at,
+                    engagement_score=score + comment_count * 0.6,
+                    metadata={"score": score, "comments": comment_count, "endpoint": endpoint},
+                )
+                items[item.dedup_key] = item
+        return list(items.values())

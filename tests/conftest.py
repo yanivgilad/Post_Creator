@@ -37,10 +37,16 @@ def settings(tmp_path):
             "rss": 0.8,
             "fake": 1.3,
         },
+        enable_arxiv=False,
+        enable_deepmind=False,
+        enable_lobsters=False,
         article_llm_options=["local-template", "google/gemini-2.5-pro"],
         gemini_api_key=None,
         github_token=None,
         product_hunt_token=None,
+        twitter_prompt_file=None,
+        linkedin_prompt_file=None,
+        reddit_prompt_file=None,
     )
 
 
