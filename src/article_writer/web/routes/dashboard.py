@@ -3,6 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
+from article_writer.article_options import (
+    ARTICLE_LANGUAGE_OPTIONS,
+    ARTICLE_PLATFORM_OPTIONS,
+    normalize_article_language,
+    normalize_article_platform,
+)
+
 
 router = APIRouter(include_in_schema=False)
 
@@ -28,6 +35,10 @@ def _article_form_context(request: Request, trend: dict, *, error: str | None = 
         "message": request.query_params.get("message"),
         "error": error,
         "values": values or {},
+        "language_options": ARTICLE_LANGUAGE_OPTIONS,
+        "platform_options": ARTICLE_PLATFORM_OPTIONS,
+        "default_language": ARTICLE_LANGUAGE_OPTIONS[0],
+        "default_platform": "LinkedIn",
         "llm_options": settings.article_llm_options,
         "is_running": request.app.state.pipeline.is_running,
     }
@@ -131,6 +142,22 @@ def create_article(
     trend = request.app.state.store.get_trend(trend_id)
     if trend is None:
         raise HTTPException(status_code=404, detail="Trend not found")
+
+    values = {
+        "language": language,
+        "target_outlet": target_outlet,
+        "llm_name": llm_name,
+    }
+    try:
+        language = normalize_article_language(language)
+        target_outlet = normalize_article_platform(target_outlet)
+    except ValueError as exc:
+        return request.app.state.templates.TemplateResponse(
+            request,
+            "article_form.html",
+            _article_form_context(request, trend, error=str(exc), values=values),
+            status_code=400,
+        )
 
     article = request.app.state.article_generator.generate(
         trend,

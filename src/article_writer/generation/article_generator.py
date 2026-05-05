@@ -75,16 +75,16 @@ class ManualArticleGenerator:
         summary = str(trend.get("summary") or trend.get("reason_summary") or trend_title)
         url = str(trend["url"])
         requested_language = language.strip() or "English"
-        target = target_outlet.strip() or "a professional audience"
+        target = target_outlet.strip() or "LinkedIn"
 
-        title = f"{trend_title}: what it means for {target}"
+        title = f"{trend_title}: a {target} angle worth covering"
         lines = [
             f"# {title}",
             "",
             f"Source: {source_name}",
             f"Original link: {url}",
             "",
-            f"This article is aimed at {target}.",
+            f"This version is formatted for {target}.",
             "",
             "## What happened",
             summary,
@@ -97,19 +97,19 @@ class ManualArticleGenerator:
             "",
             f"## Best angle for {target}",
             (
-                f"Position the piece around the practical implication for {target}. "
-                f"Instead of restating the announcement, explain what changed, who should care, and what action readers can take next."
+                f"Position the piece around the practical implication, then shape the framing for {target}. "
+                f"Instead of restating the announcement, explain what changed, why that platform's readers will care, and what action they can take next."
             ),
             "",
             "## Suggested structure",
             "1. Start with the concrete news event.",
             "2. Explain the underlying trend it points to.",
-            "3. Add one opinionated take on why it matters.",
-            "4. End with a practical takeaway or question for readers.",
+            "3. Add one opinionated take on why it matters on that platform.",
+            "4. End with a practical takeaway or question that fits the platform.",
             "",
             "## Closing take",
             (
-                f"If you write about this topic, focus on what makes it useful or strategically important instead of just describing the release."
+                f"If you write about this topic, focus on what makes it useful or strategically important for a {target} audience instead of just describing the release."
             ),
         ]
 
@@ -195,7 +195,7 @@ class ManualArticleGenerator:
         evidence_lines = "\n".join(f"- {item}" for item in evidence)
         return (
             f"Write a complete article in {language}.\n"
-            f"Target audience/publication target: {target_outlet}.\n\n"
+            f"Target platform/publication target: {target_outlet}.\n\n"
             f"News item title: {trend['title']}\n"
             f"Source: {trend['source_name']}\n"
             f"Summary: {trend.get('summary') or trend.get('reason_summary') or ''}\n"
@@ -205,6 +205,7 @@ class ManualArticleGenerator:
             "Requirements:\n"
             "- Start with a strong title.\n"
             "- Write in a clear editorial style, not as bullet notes.\n"
+            "- Tailor the tone, structure, and length to the target platform.\n"
             "- Explain what happened, why it matters, and what readers should watch next.\n"
             "- Keep it factual and grounded in the provided information.\n"
             "- End with a concise closing takeaway."

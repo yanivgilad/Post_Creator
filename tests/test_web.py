@@ -52,7 +52,17 @@ def test_web_routes_render_and_api_returns_latest_run(settings):
             data={
                 "trend_id": str(trend_id),
                 "language": "English",
-                "target_outlet": "Founders and AI builders",
+                "target_outlet": "LinkedIn",
+                "llm_name": "local-template",
+            },
+            follow_redirects=False,
+        )
+        invalid_article_create = client.post(
+            "/articles",
+            data={
+                "trend_id": str(trend_id),
+                "language": "German",
+                "target_outlet": "Newsletter",
                 "llm_name": "local-template",
             },
             follow_redirects=False,
@@ -69,11 +79,16 @@ def test_web_routes_render_and_api_returns_latest_run(settings):
         assert "Fresh AI coding workflow lands" in trends_page.text
         assert "Create Article" in trends_page.text
         assert article_form.status_code == 200
-        assert "Language" in article_form.text
+        assert '<select name="language"' in article_form.text
+        assert "Hebrew" in article_form.text
+        assert '<select name="target_outlet"' in article_form.text
+        assert "Hashnode/Dev.to" in article_form.text
         assert article_create.status_code == 303
         article_detail = client.get(article_create.headers["location"])
         assert article_detail.status_code == 200
-        assert "Founders and AI builders" in article_detail.text
+        assert "LinkedIn" in article_detail.text
         assert "local-template" in article_detail.text
+        assert invalid_article_create.status_code == 400
+        assert "Choose English or Hebrew." in invalid_article_create.text
         assert trigger.status_code == 200
         assert trigger.json()["status"] == "scheduled"

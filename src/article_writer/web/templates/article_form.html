@@ -31,11 +31,23 @@
       <input type="hidden" name="trend_id" value="{{ trend.id }}" />
       <label>
         Language
-        <input name="language" value="{{ values.language or 'English' }}" placeholder="English" required />
+        {% set language_choices = language_options|default(['English', 'Hebrew'], true) %}
+        {% set selected_language = values.language or (default_language|default(language_choices[0], true)) %}
+        <select name="language" required>
+          {% for language_option in language_choices %}
+            <option value="{{ language_option }}" {% if selected_language == language_option %}selected{% endif %}>{{ language_option }}</option>
+          {% endfor %}
+        </select>
       </label>
       <label>
-        Target Of The Article
-        <input name="target_outlet" value="{{ values.target_outlet or 'Founders and AI builders' }}" placeholder="Founders, product teams, newsletter readers, LinkedIn audience..." required />
+        Target Platform
+        {% set platform_choices = platform_options|default(['Twitter/X', 'LinkedIn', 'Reddit', 'Hashnode/Dev.to'], true) %}
+        {% set selected_platform = values.target_outlet or (default_platform|default('LinkedIn', true)) %}
+        <select name="target_outlet" required>
+          {% for platform_option in platform_choices %}
+            <option value="{{ platform_option }}" {% if selected_platform == platform_option %}selected{% endif %}>{{ platform_option }}</option>
+          {% endfor %}
+        </select>
       </label>
       <label>
         LLM

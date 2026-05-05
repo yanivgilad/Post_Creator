@@ -5,6 +5,8 @@ from dataclasses import asdict
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
+from article_writer.article_options import normalize_article_language, normalize_article_platform
+
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -81,10 +83,15 @@ def create_article(request: Request, payload: ArticleCreatePayload):
     trend = request.app.state.store.get_trend(payload.trend_id)
     if trend is None:
         raise HTTPException(status_code=404, detail="Trend not found")
+    try:
+        language = normalize_article_language(payload.language)
+        target_outlet = normalize_article_platform(payload.target_outlet)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     article = request.app.state.article_generator.generate(
         trend,
-        language=payload.language,
-        target_outlet=payload.target_outlet,
+        language=language,
+        target_outlet=target_outlet,
         llm_name=payload.llm_name,
         settings=request.app.state.settings,
     )
