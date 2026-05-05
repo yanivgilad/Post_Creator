@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 import os
 from pathlib import Path
@@ -99,6 +99,8 @@ class Settings:
     twitter_prompt_file: str | None
     linkedin_prompt_file: str | None
     reddit_prompt_file: str | None
+    log_dir: str = field(default="data/logs")
+    log_level: str = field(default="INFO")
 
     @property
     def supported_article_llm_options(self) -> list[str]:
@@ -183,4 +185,6 @@ def get_settings() -> Settings:
         twitter_prompt_file=os.getenv("ARTICLE_WRITER_TWITTER_PROMPT_FILE") or None,
         linkedin_prompt_file=os.getenv("ARTICLE_WRITER_LINKEDIN_PROMPT_FILE") or None,
         reddit_prompt_file=os.getenv("ARTICLE_WRITER_REDDIT_PROMPT_FILE") or None,
+        log_dir=os.getenv("ARTICLE_WRITER_LOG_DIR", "data/logs"),
+        log_level=os.getenv("ARTICLE_WRITER_LOG_LEVEL", "INFO"),
     )

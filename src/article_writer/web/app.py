@@ -35,6 +35,8 @@ def create_app(settings: Settings | None = None, *, start_scheduler: bool = True
         app.state.scheduler = scheduler
         app.state.article_generator = article_generator
         app.state.templates = templates
+        app.state.live_log_lines: list[str] = []
+        app.state.live_run_id: int | None = None
 
         if start_scheduler:
             scheduler.start()

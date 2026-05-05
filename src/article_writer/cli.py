@@ -5,6 +5,7 @@ import argparse
 import uvicorn
 
 from article_writer.config import get_settings
+from article_writer.logging_setup import setup_logging
 from article_writer.pipeline.run_daily import DailyPipeline
 from article_writer.storage.sqlite_store import SQLiteStore
 from article_writer.web.app import create_app
@@ -27,6 +28,7 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     settings = get_settings()
+    setup_logging(settings)
 
     if args.command == "init-db":
         store = SQLiteStore(settings)

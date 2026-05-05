@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import logging
 from threading import Lock
+
+logger = logging.getLogger(__name__)
 
 from article_writer.config import Settings
 from article_writer.models import PipelineSnapshot, normalize_url
@@ -35,17 +38,23 @@ class DailyPipeline:
         errors: list[str] = []
         all_items = []
 
+        logger.info("Run %d started (triggered_by=%s)", run_id, triggered_by)
+
         try:
             since = self._since_timestamp()
             for source in self.sources:
                 try:
-                    all_items.extend(source.fetch(since, self.settings))
+                    fetched = source.fetch(since, self.settings)
+                    all_items.extend(fetched)
+                    logger.info("[%s] fetched %d items", source.name, len(fetched))
                 except Exception as exc:
+                    logger.warning("[%s] fetch failed: %s", source.name, exc)
                     errors.append(f"{source.name}: {exc}")
 
             recent_urls = {normalize_url(url) for url in self.store.recent_urls(self.settings.dedup_days)}
-            ranked = rank_items(all_items, self.settings, recent_urls)
             unique_count = len({item.dedup_key for item in all_items})
+            logger.info("Ranking %d items (%d unique)...", len(all_items), unique_count)
+            ranked = rank_items(all_items, self.settings, recent_urls)
             snapshot = PipelineSnapshot(
                 ranked_trends=ranked,
                 drafts=[],
@@ -54,9 +63,11 @@ class DailyPipeline:
                 errors=errors,
             )
             self.store.complete_run(run_id, snapshot, source_count=len(self.sources))
+            logger.info("Run %d completed: %d trends, %d source errors", run_id, len(ranked), len(errors))
             return run_id
         except Exception as exc:
             errors.append(f"pipeline: {exc}")
+            logger.exception("Run %d failed: %s", run_id, exc)
             self.store.fail_run(run_id, errors)
             raise
         finally:

@@ -29,7 +29,7 @@
           <h2>Run Controls</h2>
           <p class="muted">Trigger a manual scan or let the background scheduler populate this automatically each day.</p>
         </div>
-        <form method="post" action="/runs/trigger">
+        <form id="run-form" method="post" action="/runs/trigger">
           <button type="submit">Run Now</button>
         </form>
       </div>
@@ -43,6 +43,10 @@
       {% else %}
         <div class="empty">No runs have completed yet. Trigger one to populate the dashboard.</div>
       {% endif %}
+      <div id="run-log-panel" style="display:none; margin-top: 12px;">
+        <p class="muted">Live Log:</p>
+        <pre id="run-log-output" style="max-height:300px;overflow-y:auto;font-size:11px;background:#f5f5f5;padding:8px;border-radius:4px;white-space:pre-wrap;word-break:break-all;"></pre>
+      </div>
     </section>
 
     <section class="card">
@@ -118,4 +122,46 @@
       <div class="empty">No articles have been created yet. Pick a trend and create one manually.</div>
     {% endif %}
   </section>
+
+<script>
+(function () {
+  var logPanel = document.getElementById('run-log-panel');
+  var logOutput = document.getElementById('run-log-output');
+  var pollTimer = null;
+
+  function startPolling() {
+    logPanel.style.display = '';
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(fetchLog, 2000);
+    fetchLog();
+  }
+
+  function fetchLog() {
+    fetch('/api/runs/live-log')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        logOutput.textContent = (data.lines || []).join('\n');
+        logOutput.scrollTop = logOutput.scrollHeight;
+        if (!data.is_running) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      })
+      .catch(function () {});
+  }
+
+  var form = document.getElementById('run-form');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      fetch('/api/runs/trigger', { method: 'POST' })
+        .then(function (r) {
+          if (r.ok || r.status === 409) startPolling();
+        });
+    });
+  }
+
+  {% if is_running %}startPolling();{% endif %}
+})();
+</script>
 {% endblock %}

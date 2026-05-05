@@ -30,6 +30,8 @@ class LobstersSource(SourceAdapter):
                 # NOTE: unexpected top-level format; expected a JSON array of story objects
                 continue
             for story in stories:
+                if not isinstance(story, dict):
+                    continue
                 title = story.get("title") or ""
                 url = story.get("url") or story.get("short_id_url") or ""
                 if not title or not url:
@@ -42,13 +44,17 @@ class LobstersSource(SourceAdapter):
                     continue
                 score = float(story.get("score") or 0)
                 comment_count = float(story.get("comment_count") or 0)
+                submitter_user = story.get("submitter_user")
+                author = submitter_user or None
+                if isinstance(submitter_user, dict):
+                    author = submitter_user.get("username")
                 item = SourceItem(
                     source_name=self.name,
                     external_id=story.get("short_id") or url,
                     title=title,
                     url=url,
                     summary=truncate_text(description or title),
-                    author=(story.get("submitter_user") or {}).get("username"),
+                    author=author,
                     published_at=published_at,
                     engagement_score=score + comment_count * 0.6,
                     metadata={"score": score, "comments": comment_count, "endpoint": endpoint},

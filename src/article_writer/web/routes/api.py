@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import logging
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
 from article_writer.article_options import normalize_article_language, normalize_article_platform
 from article_writer.config import filter_supported_article_llm_options
+from article_writer.logging_setup import RunLogHandler
 
 
 router = APIRouter(prefix="/api", tags=["api"])
@@ -20,11 +22,29 @@ class ArticleCreatePayload(BaseModel):
     llm_name: str
 
 
-def _background_run(pipeline) -> None:
+def _background_run(pipeline, app_state=None) -> None:
+    lines: list[str] = []
+    handler: RunLogHandler | None = None
+    captured_run_id: int | None = None
+
+    if app_state is not None:
+        lines = app_state.live_log_lines
+        lines.clear()
+        app_state.live_run_id = None
+        handler = RunLogHandler(lines)
+        logging.getLogger().addHandler(handler)
+
     try:
-        pipeline.run("manual")
+        captured_run_id = pipeline.run("manual")
+        if app_state is not None:
+            app_state.live_run_id = captured_run_id
     except Exception:
-        return
+        pass
+    finally:
+        if handler is not None:
+            logging.getLogger().removeHandler(handler)
+        if app_state is not None and captured_run_id is not None and lines:
+            app_state.store.save_run_log(captured_run_id, "\n".join(lines))
 
 
 def _public_settings(request: Request) -> dict:
@@ -50,6 +70,16 @@ def latest_run(request: Request):
     if payload is None:
         raise HTTPException(status_code=404, detail="Latest run missing")
     return payload
+
+
+@router.get("/runs/live-log")
+def live_log(request: Request):
+    state = request.app.state
+    return {
+        "is_running": state.pipeline.is_running,
+        "run_id": getattr(state, "live_run_id", None),
+        "lines": list(getattr(state, "live_log_lines", [])),
+    }
 
 
 @router.get("/runs/{run_id}")
@@ -121,5 +151,5 @@ def get_config(request: Request):
 def trigger_run(request: Request, background_tasks: BackgroundTasks):
     if request.app.state.pipeline.is_running:
         raise HTTPException(status_code=409, detail="A pipeline run is already in progress")
-    background_tasks.add_task(_background_run, request.app.state.pipeline)
+    background_tasks.add_task(_background_run, request.app.state.pipeline, request.app.state)
     return {"status": "scheduled"}

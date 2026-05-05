@@ -29,6 +29,7 @@ class PipelineRunRecord(Base):
     raw_item_count: Mapped[int] = mapped_column(Integer, default=0)
     unique_item_count: Mapped[int] = mapped_column(Integer, default=0)
     error_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    log_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     trends: Mapped[list[TrendRecord]] = relationship(back_populates="run", cascade="all, delete-orphan")
     drafts: Mapped[list[DraftRecord]] = relationship(back_populates="run", cascade="all, delete-orphan")
@@ -99,6 +100,15 @@ class SQLiteStore:
 
     def init_db(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        from sqlalchemy import inspect, text as sa_text
+
+        cols = {c["name"] for c in inspect(self._engine).get_columns("pipeline_runs")}
+        with self._engine.begin() as conn:
+            if "log_text" not in cols:
+                conn.execute(sa_text("ALTER TABLE pipeline_runs ADD COLUMN log_text TEXT"))
 
     def create_run(self, triggered_by: str) -> int:
         with self.session() as session:
@@ -254,6 +264,13 @@ class SQLiteStore:
             rows = session.scalars(query).all()
             return [self._serialize_article(row) for row in rows]
 
+    def save_run_log(self, run_id: int, log_text: str) -> None:
+        with Session(self._engine) as session:
+            run = session.get(PipelineRunRecord, run_id)
+            if run is not None:
+                run.log_text = log_text
+                session.commit()
+
     def session(self) -> Session:
         return self._session_factory()
 
@@ -269,6 +286,7 @@ class SQLiteStore:
             "raw_item_count": row.raw_item_count,
             "unique_item_count": row.unique_item_count,
             "error_text": row.error_text,
+            "log_text": row.log_text,
         }
 
     def _serialize_trend(self, row: TrendRecord) -> dict[str, object]:

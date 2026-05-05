@@ -9,6 +9,7 @@ from article_writer.article_options import (
     normalize_article_language,
     normalize_article_platform,
 )
+from article_writer.web.routes.api import _background_run
 
 
 router = APIRouter(include_in_schema=False)
@@ -43,12 +44,6 @@ def _article_form_context(request: Request, trend: dict, *, error: str | None = 
         "is_running": request.app.state.pipeline.is_running,
     }
 
-
-def _background_run(pipeline) -> None:
-    try:
-        pipeline.run("manual")
-    except Exception:
-        return
 
 
 @router.get("/")
@@ -197,5 +192,5 @@ def article_detail(request: Request, article_id: int):
 def trigger_run(request: Request, background_tasks: BackgroundTasks):
     if request.app.state.pipeline.is_running:
         return RedirectResponse(url="/?message=run-already-in-progress", status_code=303)
-    background_tasks.add_task(_background_run, request.app.state.pipeline)
+    background_tasks.add_task(_background_run, request.app.state.pipeline, request.app.state)
     return RedirectResponse(url="/?message=run-scheduled", status_code=303)
