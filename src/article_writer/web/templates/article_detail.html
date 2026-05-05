@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}{{ article.title }}{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div>
+        <h2>{{ article.title }}</h2>
+        <div class="meta">
+          <span>{{ article.language }}</span>
+          <span>{{ article.target_outlet }}</span>
+          <span>{{ article.llm_name }}</span>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="button ghost" href="/articles">All Articles</a>
+        <a class="button secondary" href="/articles/new?trend_id={{ article.trend.id }}">Create Another Version</a>
+      </div>
+    </div>
+
+    <article class="item" style="margin-top: 18px;">
+      <div class="meta">
+        <span>Based on</span>
+        <span>{{ article.trend.source_name }}</span>
+      </div>
+      <h3><a href="{{ article.trend.url }}" target="_blank" rel="noreferrer">{{ article.trend.title }}</a></h3>
+      {% if article.metadata.fallback_reason %}
+        <p class="muted">{{ article.metadata.fallback_reason }}</p>
+      {% endif %}
+      <pre>{{ article.body }}</pre>
+    </article>
+  </section>
+{% endblock %}

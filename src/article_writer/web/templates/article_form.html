@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Create Article{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div>
+        <h2>Create Article</h2>
+        <p class="muted">Choose how you want to write about this trend.</p>
+      </div>
+      <a class="button ghost" href="/trends?run_id={{ trend.run_id }}">Back To Trends</a>
+    </div>
+
+    <article class="item" style="margin-top:16px;">
+      <div class="meta">
+        <span>{{ trend.source_name }}</span>
+        <span>{{ trend.published_at }}</span>
+        <span>Score {{ trend.rank_score }}</span>
+      </div>
+      <h3><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
+      <p>{{ trend.summary }}</p>
+      <p class="muted">{{ trend.reason_summary }}</p>
+    </article>
+
+    {% if error %}
+      <div class="banner" style="margin-top: 16px; background: rgba(180, 35, 24, 0.12); border-color: rgba(180, 35, 24, 0.2); color: #7a271a;">{{ error }}</div>
+    {% endif %}
+
+    <form class="stack" method="post" action="/articles" style="margin-top: 18px;">
+      <input type="hidden" name="trend_id" value="{{ trend.id }}" />
+      <label>
+        Language
+        <input name="language" value="{{ values.language or 'English' }}" placeholder="English" required />
+      </label>
+      <label>
+        Target Of The Article
+        <input name="target_outlet" value="{{ values.target_outlet or 'Founders and AI builders' }}" placeholder="Founders, product teams, newsletter readers, LinkedIn audience..." required />
+      </label>
+      <label>
+        LLM
+        <select name="llm_name" required>
+          {% for llm in llm_options %}
+            <option value="{{ llm }}" {% if (values.llm_name or 'local-template') == llm %}selected{% endif %}>{{ llm }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="actions">
+        <button type="submit">Create Article</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

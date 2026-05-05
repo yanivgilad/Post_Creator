@@ -1,0 +1,2 @@
+[console_scripts]
+article-writer = article_writer.cli:main

@@ -1,0 +1,167 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
+
+
+router = APIRouter(include_in_schema=False)
+
+
+def _latest_full_run(request: Request) -> dict | None:
+    latest = request.app.state.store.get_latest_run()
+    if latest is None:
+        return None
+    return request.app.state.store.get_run(latest["id"])
+
+
+def _selected_run(request: Request, run_id: int | None) -> dict | None:
+    if run_id is None:
+        return _latest_full_run(request)
+    return request.app.state.store.get_run(run_id)
+
+
+def _article_form_context(request: Request, trend: dict, *, error: str | None = None, values: dict | None = None) -> dict:
+    settings = request.app.state.settings
+    return {
+        "request": request,
+        "trend": trend,
+        "message": request.query_params.get("message"),
+        "error": error,
+        "values": values or {},
+        "llm_options": settings.article_llm_options,
+        "is_running": request.app.state.pipeline.is_running,
+    }
+
+
+def _background_run(pipeline) -> None:
+    try:
+        pipeline.run("manual")
+    except Exception:
+        return
+
+
+@router.get("/")
+def dashboard_view(request: Request):
+    latest_run = _latest_full_run(request)
+    recent_runs = request.app.state.store.list_runs(limit=10)
+    recent_articles = request.app.state.store.list_articles(limit=5)
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "index.html",
+        {
+            "latest_run": latest_run,
+            "recent_runs": recent_runs,
+            "recent_articles": recent_articles,
+            "article_count": len(recent_articles) if not latest_run else len(latest_run.get("articles", [])),
+            "message": request.query_params.get("message"),
+            "is_running": request.app.state.pipeline.is_running,
+        },
+    )
+
+
+@router.get("/history")
+def history_view(request: Request):
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "history.html",
+        {
+            "runs": request.app.state.store.list_runs(limit=50),
+            "is_running": request.app.state.pipeline.is_running,
+        },
+    )
+
+
+@router.get("/trends")
+def trends_view(request: Request, run_id: int | None = None):
+    run = _selected_run(request, run_id)
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "trends.html",
+        {
+            "run": run,
+            "is_running": request.app.state.pipeline.is_running,
+        },
+    )
+
+
+@router.get("/articles")
+def articles_view(request: Request, run_id: int | None = None):
+    run = _selected_run(request, run_id)
+    articles = request.app.state.store.list_articles(run_id=run_id)
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "articles.html",
+        {
+            "run": run,
+            "articles": articles,
+            "is_running": request.app.state.pipeline.is_running,
+            "message": request.query_params.get("message"),
+        },
+    )
+
+
+@router.get("/drafts")
+def drafts_redirect(request: Request, run_id: int | None = None):
+    target = "/articles"
+    if run_id is not None:
+        target = f"/articles?run_id={run_id}"
+    return RedirectResponse(url=target, status_code=307)
+
+
+@router.get("/articles/new")
+def article_form(request: Request, trend_id: int):
+    trend = request.app.state.store.get_trend(trend_id)
+    if trend is None:
+        raise HTTPException(status_code=404, detail="Trend not found")
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "article_form.html",
+        _article_form_context(request, trend),
+    )
+
+
+@router.post("/articles")
+def create_article(
+    request: Request,
+    trend_id: int = Form(...),
+    language: str = Form(...),
+    target_outlet: str = Form(...),
+    llm_name: str = Form(...),
+):
+    trend = request.app.state.store.get_trend(trend_id)
+    if trend is None:
+        raise HTTPException(status_code=404, detail="Trend not found")
+
+    article = request.app.state.article_generator.generate(
+        trend,
+        language=language,
+        target_outlet=target_outlet,
+        llm_name=llm_name,
+        settings=request.app.state.settings,
+    )
+    article_id = request.app.state.store.create_article(article)
+    return RedirectResponse(url=f"/articles/{article_id}?message=article-created", status_code=303)
+
+
+@router.get("/articles/{article_id}")
+def article_detail(request: Request, article_id: int):
+    article = request.app.state.store.get_article(article_id)
+    if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "article_detail.html",
+        {
+            "article": article,
+            "is_running": request.app.state.pipeline.is_running,
+            "message": request.query_params.get("message"),
+        },
+    )
+
+
+@router.post("/runs/trigger")
+def trigger_run(request: Request, background_tasks: BackgroundTasks):
+    if request.app.state.pipeline.is_running:
+        return RedirectResponse(url="/?message=run-already-in-progress", status_code=303)
+    background_tasks.add_task(_background_run, request.app.state.pipeline)
+    return RedirectResponse(url="/?message=run-scheduled", status_code=303)

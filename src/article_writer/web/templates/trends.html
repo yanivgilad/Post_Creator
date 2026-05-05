@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Trends{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div>
+        <h2>Ranked Trends</h2>
+        <p class="muted">{% if run %}Run #{{ run.id }}{% else %}No run selected{% endif %}</p>
+      </div>
+      {% if run %}
+        <a class="button secondary" href="/articles?run_id={{ run.id }}">Open Articles</a>
+      {% endif %}
+    </div>
+    {% if run and run.trends %}
+      <div class="list">
+        {% for trend in run.trends %}
+          <article class="item">
+            <div class="meta">
+              <span>#{{ loop.index }}</span>
+              <span>{{ trend.source_name }}</span>
+              <span>{{ trend.published_at }}</span>
+              <span>Score {{ trend.rank_score or trend.score }}</span>
+            </div>
+            <h3><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
+            <p>{{ trend.summary }}</p>
+            <p class="muted">{{ trend.reason_summary }}</p>
+            {% if trend.evidence %}
+              <ul class="clean">
+                {% for point in trend.evidence %}
+                  <li>{{ point }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+            <div class="actions">
+              <a class="button" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">No ranked trends are available for this run.</div>
+    {% endif %}
+  </section>
+{% endblock %}

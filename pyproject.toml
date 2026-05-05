@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=80.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "article-writer"
+version = "0.1.0"
+description = "Local AI trends dashboard with a Python background pipeline."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "apscheduler>=3.10,<4.0",
+  "fastapi>=0.115,<1.0",
+  "jinja2>=3.1,<4.0",
+  "python-multipart>=0.0.9,<1.0",
+  "sqlalchemy>=2.0,<3.0",
+  "uvicorn>=0.30,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.27,<1.0",
+  "pytest>=8.0,<9.0",
+]
+
+[project.scripts]
+article-writer = "article_writer.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

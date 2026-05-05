@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: article-writer
+Version: 0.1.0
+Summary: Local AI trends dashboard with a Python background pipeline.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: apscheduler<4.0,>=3.10
+Requires-Dist: fastapi<1.0,>=0.115
+Requires-Dist: jinja2<4.0,>=3.1
+Requires-Dist: python-multipart<1.0,>=0.0.9
+Requires-Dist: sqlalchemy<3.0,>=2.0
+Requires-Dist: uvicorn<1.0,>=0.30
+Provides-Extra: dev
+Requires-Dist: httpx<1.0,>=0.27; extra == "dev"
+Requires-Dist: pytest<9.0,>=8.0; extra == "dev"
+
+# Article Writer
+
+Local-first AI trend scouting dashboard that runs on your machine, stores daily runs in SQLite, and serves recommendations over a FastAPI website.
+
+## Local workflow
+
+1. Start the web app.
+2. Let the background scheduler run daily or trigger a manual run.
+3. Review ranked trends and suggested drafts in the browser.
+
+## Commands
+
+```bash
+article-writer serve
+article-writer run-once
+article-writer init-db
+```
+
+## Notes
+
+- Product Hunt ingestion is optional and only runs when `ARTICLE_WRITER_PRODUCT_HUNT_TOKEN` is configured.
+- The writing layer is template-based for now. A real LLM provider can be added later behind the existing generation interface.

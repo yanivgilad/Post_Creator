@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+  <div class="kpis">
+    <div class="card">
+      <div class="kpi-label">Pipeline Status</div>
+      <div class="kpi-value">{{ "Running" if is_running else "Idle" }}</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Latest Run</div>
+      <div class="kpi-value">{% if latest_run %}#{{ latest_run.id }}{% else %}None{% endif %}</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Ranked Trends</div>
+      <div class="kpi-value">{% if latest_run %}{{ latest_run.trends | length }}{% else %}0{% endif %}</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Manual Articles</div>
+      <div class="kpi-value">{{ article_count }}</div>
+    </div>
+  </div>
+
+  <div class="grid two">
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <div>
+          <h2>Run Controls</h2>
+          <p class="muted">Trigger a manual scan or let the background scheduler populate this automatically each day.</p>
+        </div>
+        <form method="post" action="/runs/trigger">
+          <button type="submit">Run Now</button>
+        </form>
+      </div>
+      {% if latest_run %}
+        <p><span class="status {{ latest_run.status }}">{{ latest_run.status }}</span></p>
+        <p class="muted">Started: {{ latest_run.started_at }}</p>
+        <p class="muted">Fetched {{ latest_run.raw_item_count }} items across {{ latest_run.source_count }} sources.</p>
+        {% if latest_run.error_text %}
+          <p class="muted">Errors: {{ latest_run.error_text }}</p>
+        {% endif %}
+      {% else %}
+        <div class="empty">No runs have completed yet. Trigger one to populate the dashboard.</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Recent Runs</h2>
+      {% if recent_runs %}
+        <div class="list">
+          {% for run in recent_runs[:5] %}
+            <div class="item">
+              <div class="meta">
+                <span>#{{ run.id }}</span>
+                <span>{{ run.status }}</span>
+                <span>{{ run.created_at }}</span>
+              </div>
+              <a class="button ghost" href="/trends?run_id={{ run.id }}">Open Run</a>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty">No historical runs yet.</div>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="card" style="margin-top: 20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <h2>Latest Recommendations</h2>
+      {% if latest_run %}
+        <a class="button secondary" href="/trends?run_id={{ latest_run.id }}">View All Trends</a>
+      {% endif %}
+    </div>
+    {% if latest_run and latest_run.trends %}
+      <div class="list">
+        {% for trend in latest_run.trends[:5] %}
+          <article class="item">
+            <div class="meta">
+              <span>#{{ loop.index }}</span>
+              <span>{{ trend.source_name }}</span>
+              <span>Score {{ trend.rank_score or trend.score }}</span>
+            </div>
+            <h3><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
+            <p>{{ trend.reason_summary }}</p>
+            <div class="actions">
+              <a class="button ghost" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">The dashboard will show the highest-ranked recommendations after the next run.</div>
+    {% endif %}
+  </section>
+
+  <section class="card" style="margin-top: 20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <h2>Recent Articles</h2>
+      <a class="button secondary" href="/articles">Open Articles</a>
+    </div>
+    {% if recent_articles %}
+      <div class="list">
+        {% for article in recent_articles %}
+          <article class="item">
+            <div class="meta">
+              <span>{{ article.language }}</span>
+              <span>{{ article.target_outlet }}</span>
+              <span>{{ article.llm_name }}</span>
+            </div>
+            <h3><a href="/articles/{{ article.id }}">{{ article.title }}</a></h3>
+            <p>{{ article.trend.title }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">No articles have been created yet. Pick a trend and create one manually.</div>
+    {% endif %}
+  </section>
+{% endblock %}

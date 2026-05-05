@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Run History{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <h2>Run History</h2>
+    {% if runs %}
+      <table>
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th>Items</th>
+            <th>Open</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for run in runs %}
+            <tr>
+              <td>#{{ run.id }}</td>
+              <td><span class="status {{ run.status }}">{{ run.status }}</span></td>
+              <td>{{ run.started_at or run.created_at }}</td>
+              <td>{{ run.raw_item_count }}</td>
+              <td><a class="button ghost" href="/trends?run_id={{ run.id }}">Trends</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">No runs have been recorded yet.</div>
+    {% endif %}
+  </section>
+{% endblock %}

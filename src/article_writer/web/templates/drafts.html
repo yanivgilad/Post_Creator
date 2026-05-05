@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Drafts{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div>
+        <h2>Draft Artifacts</h2>
+        <p class="muted">{% if run %}Run #{{ run.id }}{% else %}No run selected{% endif %}</p>
+      </div>
+      {% if run %}
+        <a class="button secondary" href="/trends?run_id={{ run.id }}">Back To Trends</a>
+      {% endif %}
+    </div>
+    {% if run and run.drafts %}
+      <div class="list">
+        {% for draft in run.drafts %}
+          <article class="item">
+            <div class="meta">
+              <span>{{ draft.platform }}</span>
+              <span>#{{ draft.id }}</span>
+            </div>
+            <h3>{{ draft.title }}</h3>
+            <pre>{{ draft.body or draft.content }}</pre>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">No drafts are available for this run.</div>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Articles{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div>
+        <h2>Created Articles</h2>
+        <p class="muted">{% if run %}Run #{{ run.id }}{% else %}All manually created articles{% endif %}</p>
+      </div>
+      {% if run %}
+        <a class="button secondary" href="/trends?run_id={{ run.id }}">Back To Trends</a>
+      {% endif %}
+    </div>
+
+    {% if articles %}
+      <div class="list">
+        {% for article in articles %}
+          <article class="item">
+            <div class="meta">
+              <span>{{ article.language }}</span>
+              <span>{{ article.target_outlet }}</span>
+              <span>{{ article.llm_name }}</span>
+            </div>
+            <h3><a href="/articles/{{ article.id }}">{{ article.title }}</a></h3>
+            <p class="muted">Based on: {{ article.trend.title }}</p>
+            {% if article.metadata.fallback_reason %}
+              <p class="muted">{{ article.metadata.fallback_reason }}</p>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">No articles have been created yet. Use the Create Article action from a trend card.</div>
+    {% endif %}
+  </section>
+{% endblock %}
