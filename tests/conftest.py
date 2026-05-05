@@ -37,8 +37,8 @@ def settings(tmp_path):
             "rss": 0.8,
             "fake": 1.3,
         },
-        article_llm_options=["local-template", "openai/gpt-4.1-mini"],
-        openrouter_api_key=None,
+        article_llm_options=["local-template", "google/gemini-2.5-pro"],
+        gemini_api_key=None,
         github_token=None,
         product_hunt_token=None,
     )

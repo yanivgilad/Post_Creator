@@ -6,6 +6,24 @@ import os
 from pathlib import Path
 
 
+DEFAULT_ARTICLE_LLM_OPTIONS = [
+    "local-template",
+    "google/gemini-2.5-pro",
+]
+
+
+def _is_supported_article_llm_option(llm_name: str) -> bool:
+    return llm_name == "local-template" or llm_name.startswith("google/")
+
+
+def filter_supported_article_llm_options(llm_options: list[str]) -> list[str]:
+    filtered: list[str] = []
+    for llm_name in llm_options:
+        if _is_supported_article_llm_option(llm_name) and llm_name not in filtered:
+            filtered.append(llm_name)
+    return filtered or list(DEFAULT_ARTICLE_LLM_OPTIONS)
+
+
 def _as_bool(raw: str | None, default: bool) -> bool:
     if raw is None:
         return default
@@ -69,9 +87,13 @@ class Settings:
     keywords: list[str]
     source_weights: dict[str, float]
     article_llm_options: list[str]
-    openrouter_api_key: str | None
+    gemini_api_key: str | None
     github_token: str | None
     product_hunt_token: str | None
+
+    @property
+    def supported_article_llm_options(self) -> list[str]:
+        return filter_supported_article_llm_options(self.article_llm_options)
 
     @property
     def data_dir(self) -> Path:
@@ -135,16 +157,13 @@ def get_settings() -> Settings:
             ],
         ),
         source_weights=_as_source_weights(os.getenv("ARTICLE_WRITER_SOURCE_WEIGHTS")),
-        article_llm_options=_as_list(
-            os.getenv("ARTICLE_WRITER_LLM_OPTIONS"),
-            [
-                "local-template",
-                "openai/gpt-4.1-mini",
-                "anthropic/claude-sonnet-4",
-                "google/gemini-2.5-pro",
-            ],
+        article_llm_options=filter_supported_article_llm_options(
+            _as_list(
+                os.getenv("ARTICLE_WRITER_LLM_OPTIONS"),
+                DEFAULT_ARTICLE_LLM_OPTIONS,
+            )
         ),
-        openrouter_api_key=os.getenv("ARTICLE_WRITER_OPENROUTER_API_KEY") or None,
+        gemini_api_key=os.getenv("ARTICLE_WRITER_GEMINI_API_KEY") or None,
         github_token=os.getenv("ARTICLE_WRITER_GITHUB_TOKEN") or None,
         product_hunt_token=os.getenv("ARTICLE_WRITER_PRODUCT_HUNT_TOKEN") or None,
     )

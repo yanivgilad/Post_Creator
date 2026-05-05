@@ -39,7 +39,7 @@ def _article_form_context(request: Request, trend: dict, *, error: str | None = 
         "platform_options": ARTICLE_PLATFORM_OPTIONS,
         "default_language": ARTICLE_LANGUAGE_OPTIONS[0],
         "default_platform": "LinkedIn",
-        "llm_options": settings.article_llm_options,
+        "llm_options": settings.supported_article_llm_options,
         "is_running": request.app.state.pipeline.is_running,
     }
 
@@ -148,6 +148,13 @@ def create_article(
         "target_outlet": target_outlet,
         "llm_name": llm_name,
     }
+    if llm_name not in request.app.state.settings.supported_article_llm_options:
+        return request.app.state.templates.TemplateResponse(
+            request,
+            "article_form.html",
+            _article_form_context(request, trend, error="Choose a supported LLM target.", values=values),
+            status_code=400,
+        )
     try:
         language = normalize_article_language(language)
         target_outlet = normalize_article_platform(target_outlet)

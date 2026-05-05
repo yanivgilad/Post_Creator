@@ -9,6 +9,12 @@ from article_writer.config import Settings
 from article_writer.models import ArticleArtifact
 
 
+SYSTEM_PROMPT = (
+    "You write clear, factual, opinionated articles about AI news. "
+    "Return markdown only. Start with a title on the first line prefixed by '# '."
+)
+
+
 class ManualArticleGenerator:
     def generate(
         self,
@@ -19,49 +25,79 @@ class ManualArticleGenerator:
         llm_name: str,
         settings: Settings,
     ) -> ArticleArtifact:
-        if llm_name != "local-template" and settings.openrouter_api_key:
+        if llm_name == "local-template":
+            article = self._generate_local_template(trend, language=language, target_outlet=target_outlet)
+            article.llm_name = llm_name
+            article.metadata.update(
+                {
+                    "mode": "local-template",
+                    "requested_llm": llm_name,
+                }
+            )
+            return article
+
+        try:
+            title, body, mode = self._generate_with_provider(
+                trend,
+                language=language,
+                target_outlet=target_outlet,
+                llm_name=llm_name,
+                settings=settings,
+            )
+            return ArticleArtifact(
+                trend_id=int(trend["id"]),
+                language=language,
+                target_outlet=target_outlet,
+                llm_name=llm_name,
+                title=title,
+                body=body,
+                metadata={"mode": mode},
+            )
+        except Exception as exc:
+            fallback = self._generate_local_template(trend, language=language, target_outlet=target_outlet)
+            fallback.metadata.update(
+                {
+                    "mode": "local-template",
+                    "fallback_reason": f"Fell back to local template after direct LLM request failed: {exc}",
+                    "requested_llm": llm_name,
+                }
+            )
+            fallback.llm_name = llm_name
+            return fallback
+
+    def _generate_with_provider(
+        self,
+        trend: dict[str, Any],
+        *,
+        language: str,
+        target_outlet: str,
+        llm_name: str,
+        settings: Settings,
+    ) -> tuple[str, str, str]:
+        provider_name, model_name = self._parse_model_name(llm_name)
+        if provider_name == "google":
             try:
-                title, body = self._generate_with_openrouter(
+                title, body = self._generate_with_gemini(
                     trend,
                     language=language,
                     target_outlet=target_outlet,
-                    llm_name=llm_name,
+                    model_name=model_name,
                     settings=settings,
                 )
-                return ArticleArtifact(
-                    trend_id=int(trend["id"]),
-                    language=language,
-                    target_outlet=target_outlet,
-                    llm_name=llm_name,
-                    title=title,
-                    body=body,
-                    metadata={"mode": "openrouter"},
-                )
+                return title, body, "gemini"
             except Exception as exc:
-                fallback = self._generate_local_template(trend, language=language, target_outlet=target_outlet)
-                fallback.metadata.update(
-                    {
-                        "mode": "local-template",
-                        "fallback_reason": f"Fell back to local template after LLM request failed: {exc}",
-                        "requested_llm": llm_name,
-                    }
-                )
-                fallback.llm_name = llm_name
-                return fallback
-
-        article = self._generate_local_template(trend, language=language, target_outlet=target_outlet)
-        article.llm_name = llm_name
-        article.metadata.update(
-            {
-                "mode": "local-template",
-                "requested_llm": llm_name,
-            }
+                raise RuntimeError(f"Gemini request failed: {exc}") from exc
+        raise RuntimeError(
+            f"Direct provider '{provider_name}' is not implemented yet for model '{llm_name}'."
         )
-        if llm_name != "local-template" and not settings.openrouter_api_key:
-            article.metadata["fallback_reason"] = (
-                "No OpenRouter API key is configured, so a local template article was generated instead."
+
+    def _parse_model_name(self, llm_name: str) -> tuple[str, str]:
+        provider_name, separator, model_name = llm_name.partition("/")
+        if not separator or not provider_name.strip() or not model_name.strip():
+            raise RuntimeError(
+                f"Model '{llm_name}' is invalid. Use the direct-provider format 'provider/model'."
             )
-        return article
+        return provider_name.strip().lower(), model_name.strip()
 
     def _generate_local_template(
         self,
@@ -119,7 +155,7 @@ class ManualArticleGenerator:
                 [
                     "",
                     f"Note: you requested {requested_language}. The current local fallback writes in English. "
-                    "Once an external LLM provider is configured, this same workflow can generate the full article in the requested language.",
+                    "Once a direct LLM provider is configured, this same workflow can generate the full article in the requested language.",
                 ]
             )
 
@@ -133,38 +169,41 @@ class ManualArticleGenerator:
             metadata=metadata,
         )
 
-    def _generate_with_openrouter(
+    def _generate_with_gemini(
         self,
         trend: dict[str, Any],
         *,
         language: str,
         target_outlet: str,
-        llm_name: str,
+        model_name: str,
         settings: Settings,
     ) -> tuple[str, str]:
+        if not settings.gemini_api_key:
+            raise RuntimeError("No Gemini API key is configured.")
+
         prompt = self._build_prompt(trend, language=language, target_outlet=target_outlet)
         payload = {
-            "model": llm_name,
-            "messages": [
+            "system_instruction": {
+                "parts": [{"text": SYSTEM_PROMPT}],
+            },
+            "contents": [
                 {
-                    "role": "system",
-                    "content": (
-                        "You write clear, factual, opinionated articles about AI news. "
-                        "Return markdown only. Start with a title on the first line prefixed by '# '."
-                    ),
-                },
-                {"role": "user", "content": prompt},
+                    "role": "user",
+                    "parts": [{"text": prompt}],
+                }
             ],
-            "temperature": 0.7,
+            "generationConfig": {
+                "temperature": 0.7,
+            },
         }
         request = Request(
-            "https://openrouter.ai/api/v1/chat/completions",
+            (
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{model_name}:generateContent?key={settings.gemini_api_key}"
+            ),
             data=json.dumps(payload).encode("utf-8"),
             headers={
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "http://127.0.0.1:8000",
-                "X-Title": "article-writer",
             },
             method="POST",
         )
@@ -173,18 +212,18 @@ class ManualArticleGenerator:
                 raw = json.loads(response.read().decode("utf-8", errors="replace"))
         except HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"OpenRouter request failed with status {exc.code}: {body[:180]}") from exc
+            raise RuntimeError(f"status {exc.code}: {body[:180]}") from exc
         except URLError as exc:
-            raise RuntimeError(f"OpenRouter request failed: {exc.reason}") from exc
+            raise RuntimeError(str(exc.reason)) from exc
 
-        content = (
-            raw.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-            .strip()
-        )
+        parts = raw.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        content = "\n\n".join(
+            part.get("text", "").strip()
+            for part in parts
+            if isinstance(part, dict) and part.get("text", "").strip()
+        ).strip()
         if not content:
-            raise RuntimeError("OpenRouter returned an empty article")
+            raise RuntimeError("Gemini returned an empty article")
 
         first_line = content.splitlines()[0].strip()
         title = first_line.lstrip("# ").strip() if first_line.startswith("#") else str(trend["title"])

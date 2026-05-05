@@ -38,4 +38,5 @@ http://127.0.0.1:8000/health
 ## Notes
 
 - Product Hunt ingestion is optional and only runs when `ARTICLE_WRITER_PRODUCT_HUNT_TOKEN` is configured.
-- The writing layer is template-based for now. A real LLM provider can be added later behind the existing generation interface.
+- The writing layer supports `local-template` and direct Gemini calls via `ARTICLE_WRITER_GEMINI_API_KEY`.
+- Additional direct providers can be added behind the existing generation interface by routing new `provider/model` names in the article generator.

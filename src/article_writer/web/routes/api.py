@@ -6,9 +6,11 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
 from article_writer.article_options import normalize_article_language, normalize_article_platform
+from article_writer.config import filter_supported_article_llm_options
 
 
 router = APIRouter(prefix="/api", tags=["api"])
+SECRET_CONFIG_FIELDS = {"gemini_api_key", "github_token", "product_hunt_token"}
 
 
 class ArticleCreatePayload(BaseModel):
@@ -23,6 +25,15 @@ def _background_run(pipeline) -> None:
         pipeline.run("manual")
     except Exception:
         return
+
+
+def _public_settings(request: Request) -> dict:
+    payload = asdict(request.app.state.settings)
+    payload["article_llm_options"] = filter_supported_article_llm_options(payload.get("article_llm_options", []))
+    for key in SECRET_CONFIG_FIELDS:
+        if key in payload:
+            payload[key] = None
+    return payload
 
 
 @router.get("/runs")
@@ -83,6 +94,8 @@ def create_article(request: Request, payload: ArticleCreatePayload):
     trend = request.app.state.store.get_trend(payload.trend_id)
     if trend is None:
         raise HTTPException(status_code=404, detail="Trend not found")
+    if payload.llm_name not in request.app.state.settings.supported_article_llm_options:
+        raise HTTPException(status_code=400, detail="Choose a supported LLM target.")
     try:
         language = normalize_article_language(payload.language)
         target_outlet = normalize_article_platform(payload.target_outlet)
@@ -101,7 +114,7 @@ def create_article(request: Request, payload: ArticleCreatePayload):
 
 @router.get("/config")
 def get_config(request: Request):
-    return asdict(request.app.state.settings)
+    return _public_settings(request)
 
 
 @router.post("/runs/trigger")
