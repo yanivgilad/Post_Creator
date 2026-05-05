@@ -72,14 +72,14 @@
 
   <section class="card" style="margin-top: 20px;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-      <h2>Latest Recommendations</h2>
+      <h2>Latest Top 10 Recommendations</h2>
       {% if latest_run %}
         <a class="button secondary" href="/trends?run_id={{ latest_run.id }}">View All Trends</a>
       {% endif %}
     </div>
     {% if latest_run and latest_run.trends %}
       <div class="list">
-        {% for trend in latest_run.trends[:5] %}
+        {% for trend in latest_run.trends[:10] %}
           <article class="item">
             <div class="meta">
               <span>#{{ loop.index }}</span>

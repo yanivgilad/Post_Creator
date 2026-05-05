@@ -14,14 +14,13 @@ class GitHubSource(SourceAdapter):
         return settings.enable_github
 
     def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
-        queries = ["llm", "ai agent", "open source ai"]
         items: dict[str, SourceItem] = {}
         since_date = since.date().isoformat()
         headers = {"Accept": "application/vnd.github+json"}
         if settings.github_token:
             headers["Authorization"] = f"Bearer {settings.github_token}"
 
-        for query in queries:
+        for query in settings.github_queries:
             search = encoded_query(f"{query} created:>{since_date}")
             url = f"https://api.github.com/search/repositories?q={search}&sort=stars&order=desc&per_page=10"
             payload = self._get_json(url, settings, headers=headers)

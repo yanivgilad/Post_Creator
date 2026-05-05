@@ -1,0 +1,95 @@
+{
+  "keywords": [
+    "ai",
+    "agent",
+    "agents",
+    "llm",
+    "model",
+    "models",
+    "machine learning",
+    "openai",
+    "anthropic",
+    "gemini",
+    "claude",
+    "chatgpt",
+    "copilot",
+    "benchmark",
+    "inference",
+    "rag",
+    "autonomy",
+    "autonomous",
+    "self-driving",
+    "robotics",
+    "multimodal"
+  ],
+  "sources": {
+    "hackernews": {
+      "enabled": true,
+      "weight": 1.0,
+      "queries": [
+        "AI",
+        "LLM",
+        "agent",
+        "open source ai"
+      ]
+    },
+    "reddit": {
+      "enabled": true,
+      "weight": 0.9,
+      "subreddits": [
+        "MachineLearning",
+        "LocalLLaMA",
+        "artificial"
+      ]
+    },
+    "github": {
+      "enabled": true,
+      "weight": 1.1,
+      "queries": [
+        "llm",
+        "ai agent",
+        "open source ai"
+      ]
+    },
+    "product_hunt": {
+      "enabled": false,
+      "weight": 1.0
+    },
+    "rss": {
+      "enabled": true,
+      "weight": 0.8,
+      "feeds": [
+        "https://openai.com/news/rss.xml",
+        "https://huggingface.co/blog/feed.xml",
+        "https://blogs.microsoft.com/feed/",
+        "https://www.apple.com/newsroom/rss-feed.rss",
+        "https://simonwillison.net/atom/everything/",
+        "https://lastweekin.ai/feed",
+        "https://ir.tesla.com/rss.xml"
+      ]
+    },
+    "arxiv": {
+      "enabled": true,
+      "weight": 1.2,
+      "feeds": [
+        "https://rss.arxiv.org/rss/cs.AI",
+        "https://rss.arxiv.org/rss/cs.LG"
+      ]
+    },
+    "deepmind": {
+      "enabled": true,
+      "weight": 0.9,
+      "feeds": [
+        "https://deepmind.google/blog/rss"
+      ]
+    },
+    "lobsters": {
+      "enabled": true,
+      "weight": 0.85,
+      "endpoints": [
+        "https://lobste.rs/t/ai.json",
+        "https://lobste.rs/t/ml.json"
+      ]
+    }
+  }
+}

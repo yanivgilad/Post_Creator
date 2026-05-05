@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 
 from article_writer.pipeline.run_daily import DailyPipeline
 from article_writer.sources.base import SourceAdapter
@@ -8,7 +9,7 @@ from article_writer.storage.sqlite_store import SQLiteStore
 
 
 class FakeSource(SourceAdapter):
-    source_name = "fake"
+    name = "fake"
 
     def enabled(self, settings):
         return True
@@ -45,3 +46,15 @@ def test_pipeline_persists_ranked_trends_without_auto_articles(settings):
     assert payload["trends"][0]["title"] == "Launch of a new AI model toolkit"
     assert payload["drafts"] == []
     assert payload["articles"] == []
+
+
+def test_pipeline_logs_source_previews_and_ranked_top_items(settings, caplog):
+    store = SQLiteStore(settings)
+    store.init_db()
+    pipeline = DailyPipeline(settings, store, sources=[FakeSource()])
+
+    with caplog.at_level(logging.INFO):
+        pipeline.run("test")
+
+    assert "[fake] preview 01: Launch of a new AI model toolkit" in caplog.text
+    assert "[ranking] top 01: [fake]" in caplog.text

@@ -14,10 +14,9 @@ class HackerNewsSource(SourceAdapter):
         return settings.enable_hackernews
 
     def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
-        queries = ["AI", "LLM", "agent", "open source ai"]
         hits: dict[str, SourceItem] = {}
         timestamp = int(since.timestamp())
-        for query in queries:
+        for query in settings.hackernews_queries:
             url = (
                 "https://hn.algolia.com/api/v1/search_by_date"
                 f"?query={encoded_query(query)}&tags=story&hitsPerPage=20&numericFilters=created_at_i>{timestamp}"

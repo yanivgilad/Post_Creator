@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 
 from article_writer.config import Settings
 from article_writer.models import SourceItem
@@ -15,6 +16,9 @@ from article_writer.sources.base import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 class RSSSource(SourceAdapter):
     name = "rss"
 
@@ -24,7 +28,17 @@ class RSSSource(SourceAdapter):
     def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
         items: dict[str, SourceItem] = {}
         for feed_url in settings.rss_feeds:
-            xml_text = self._get_text(feed_url, settings, headers={"Accept": "application/rss+xml, application/atom+xml"})
+            try:
+                xml_text = self._get_text(
+                    feed_url,
+                    settings,
+                    headers={"Accept": "application/rss+xml, application/atom+xml"},
+                )
+            except Exception as exc:
+                logger.warning("[rss] feed failed %s: %s", feed_url, exc)
+                continue
+
+            feed_item_count = 0
             for entry in iter_xml_entries(xml_text):
                 title = child_text(entry, "title") or ""
                 url = child_text(entry, "link") or ""
@@ -57,5 +71,8 @@ class RSSSource(SourceAdapter):
                     engagement_score=1.0,
                     metadata={"feed_url": feed_url},
                 )
+                if item.dedup_key not in items:
+                    feed_item_count += 1
                 items[item.dedup_key] = item
+            logger.info("[rss] feed %s fetched %d items", feed_url, feed_item_count)
         return list(items.values())

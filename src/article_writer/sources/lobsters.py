@@ -6,11 +6,6 @@ from article_writer.config import Settings
 from article_writer.models import SourceItem
 from article_writer.sources.base import SourceAdapter, matches_keywords, parse_datetime, truncate_text
 
-_ENDPOINTS = [
-    "https://lobste.rs/t/ai.json",
-    "https://lobste.rs/t/ml.json",
-]
-
 
 class LobstersSource(SourceAdapter):
     name = "lobsters"
@@ -20,7 +15,7 @@ class LobstersSource(SourceAdapter):
 
     def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
         items: dict[str, SourceItem] = {}
-        for endpoint in _ENDPOINTS:
+        for endpoint in settings.lobsters_endpoints:
             try:
                 stories = self._get_json(endpoint, settings)
             except Exception:

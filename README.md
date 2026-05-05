@@ -38,5 +38,7 @@ http://127.0.0.1:8000/health
 ## Notes
 
 - Product Hunt ingestion is optional and only runs when `ARTICLE_WRITER_PRODUCT_HUNT_TOKEN` is configured.
+- Source enable flags, queries, feeds, keywords, and weights now live in `sources.json`. Edit that file and restart the app or user service when you want to change the scouting mix.
+- The default RSS mix in `sources.json` includes Microsoft, Apple, and Tesla publication feeds in addition to the existing AI-focused feeds. The RSS source still applies the global keyword filter, so only relevant posts are ranked.
 - The writing layer supports `local-template` and direct Gemini calls via `ARTICLE_WRITER_GEMINI_API_KEY`.
 - Additional direct providers can be added behind the existing generation interface by routing new `provider/model` names in the article generator.

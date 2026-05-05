@@ -14,13 +14,6 @@ from article_writer.sources.base import (
     truncate_text,
 )
 
-# arxiv RSS uses an Atom/RSS 2.0 hybrid; <link> may appear as an attribute (href)
-# rather than text content — the fallback loop below handles both forms.
-_FEEDS = [
-    "https://rss.arxiv.org/rss/cs.AI",
-    "https://rss.arxiv.org/rss/cs.LG",
-]
-
 
 class ArxivSource(SourceAdapter):
     name = "arxiv"
@@ -30,7 +23,7 @@ class ArxivSource(SourceAdapter):
 
     def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
         items: dict[str, SourceItem] = {}
-        for feed_url in _FEEDS:
+        for feed_url in settings.arxiv_feeds:
             try:
                 xml_text = self._get_text(
                     feed_url,

@@ -11,7 +11,7 @@ from article_writer.web.app import create_app
 
 
 class FakeSource(SourceAdapter):
-    source_name = "fake"
+    name = "fake"
 
     def enabled(self, settings):
         return True
