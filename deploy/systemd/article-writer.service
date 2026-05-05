@@ -1,0 +1,14 @@
+[Unit]
+Description=Article Writer web application
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/razamit/Projects/article_writer
+EnvironmentFile=/home/razamit/Projects/article_writer/.env
+ExecStart=/home/razamit/Projects/article_writer/.venv/bin/article-writer serve
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

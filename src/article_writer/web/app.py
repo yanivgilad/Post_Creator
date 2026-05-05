@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.templating import Jinja2Templates
 
 from article_writer.config import Settings, get_settings
@@ -45,6 +45,11 @@ def create_app(settings: Settings | None = None, *, start_scheduler: bool = True
             scheduler.shutdown()
 
     app = FastAPI(title="AI Trends Scout", lifespan=lifespan)
+
+    @app.get("/health", tags=["api"], status_code=status.HTTP_200_OK)
+    def health_check():
+        return {"status": "ok"}
+
     app.include_router(dashboard.router)
     app.include_router(api.router)
     return app

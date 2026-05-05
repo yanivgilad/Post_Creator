@@ -6,7 +6,7 @@ Local-first AI trend scouting dashboard that runs on your machine, stores daily 
 
 1. Start the web app.
 2. Let the background scheduler run daily or trigger a manual run.
-3. Review ranked trends and suggested drafts in the browser.
+3. Review ranked trends in the browser and create articles on demand.
 
 ## Commands
 
@@ -14,6 +14,25 @@ Local-first AI trend scouting dashboard that runs on your machine, stores daily 
 article-writer serve
 article-writer run-once
 article-writer init-db
+```
+
+## Always-on service
+
+The repo includes a user `systemd` unit at `deploy/systemd/article-writer.service`.
+
+On this machine, the app is installed as a user service and configured to restart automatically:
+
+```bash
+systemctl --user status article-writer.service
+systemctl --user restart article-writer.service
+systemctl --user stop article-writer.service
+systemctl --user start article-writer.service
+```
+
+Health checks are available at:
+
+```text
+http://127.0.0.1:8000/health
 ```
 
 ## Notes

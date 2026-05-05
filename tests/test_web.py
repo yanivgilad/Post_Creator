@@ -36,6 +36,7 @@ def test_web_routes_render_and_api_returns_latest_run(settings):
     app = create_app(settings, start_scheduler=False)
 
     with TestClient(app) as client:
+        health = client.get("/health")
         pipeline: DailyPipeline = client.app.state.pipeline
         pipeline.sources = [FakeSource()]
         run_id = pipeline.run("test-web")
@@ -58,6 +59,8 @@ def test_web_routes_render_and_api_returns_latest_run(settings):
         )
         trigger = client.post("/api/runs/trigger")
 
+        assert health.status_code == 200
+        assert health.json() == {"status": "ok"}
         assert dashboard.status_code == 200
         assert "AI Trends Dashboard" in dashboard.text
         assert latest.status_code == 200
