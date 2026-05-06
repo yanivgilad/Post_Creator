@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 
@@ -183,12 +183,6 @@ class SQLiteStore:
             run.completed_at = datetime.now(timezone.utc)
             run.error_text = "\n".join(errors)
             session.commit()
-
-    def recent_urls(self, days: int) -> set[str]:
-        since = datetime.now(timezone.utc) - timedelta(days=days)
-        with self.session() as session:
-            rows = session.scalars(select(TrendRecord.url).where(TrendRecord.published_at >= since)).all()
-        return set(rows)
 
     def list_runs(self, limit: int = 20) -> list[dict[str, object]]:
         with self.session() as session:

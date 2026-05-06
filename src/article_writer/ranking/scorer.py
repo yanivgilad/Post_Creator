@@ -4,19 +4,16 @@ from datetime import datetime, timezone
 import math
 
 from article_writer.config import Settings
-from article_writer.models import RankedTrend, SourceItem, normalize_url
+from article_writer.models import RankedTrend, SourceItem
 
 
 def rank_items(
-    items: list[SourceItem], settings: Settings, prior_urls: set[str]
+    items: list[SourceItem], settings: Settings
 ) -> tuple[list[RankedTrend], list[RankedTrend]]:
     """Return (top_n_ranked, all_scored) — all_scored is sorted by score desc."""
     now = datetime.now(timezone.utc)
     unique_items: dict[str, SourceItem] = {}
     for item in items:
-        normalized = normalize_url(item.url)
-        if normalized in prior_urls:
-            continue
         existing = unique_items.get(item.dedup_key)
         if existing is None or item.engagement_score > existing.engagement_score:
             unique_items[item.dedup_key] = item

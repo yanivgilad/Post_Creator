@@ -48,7 +48,7 @@ def test_pipeline_persists_ranked_trends_without_auto_articles(settings):
     assert payload["articles"] == []
 
 
-def test_pipeline_logs_source_previews_and_ranked_top_items(settings, caplog):
+def test_pipeline_logs_source_item_counts(settings, caplog):
     store = SQLiteStore(settings)
     store.init_db()
     pipeline = DailyPipeline(settings, store, sources=[FakeSource()])
@@ -56,5 +56,4 @@ def test_pipeline_logs_source_previews_and_ranked_top_items(settings, caplog):
     with caplog.at_level(logging.INFO):
         pipeline.run("test")
 
-    assert "[fake] preview 01: Launch of a new AI model toolkit" in caplog.text
-    assert "[ranking] top 01: [fake]" in caplog.text
+    assert "[fake] fetched 1 items" in caplog.text

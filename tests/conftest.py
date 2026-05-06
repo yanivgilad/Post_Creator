@@ -30,6 +30,7 @@ def settings(tmp_path):
         enable_arxiv=False,
         enable_deepmind=False,
         enable_lobsters=False,
+        enable_netlify=False,
         hackernews_queries=["AI", "LLM", "agent", "open source ai"],
         rss_feeds=[
             "https://openai.com/news/rss.xml",

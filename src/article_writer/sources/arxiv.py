@@ -8,7 +8,6 @@ from article_writer.sources.base import (
     SourceAdapter,
     child_text,
     iter_xml_entries,
-    matches_keywords,
     parse_datetime,
     strip_html,
     truncate_text,
@@ -47,8 +46,6 @@ class ArxivSource(SourceAdapter):
                 if not title or not url:
                     continue
                 summary = strip_html(child_text(entry, "summary", "description", "content") or "")
-                if not matches_keywords(f"{title} {summary}", settings.keywords):
-                    continue
                 published_at = parse_datetime(
                     child_text(entry, "published", "updated", "pubdate", "dc:date")
                 )

@@ -95,6 +95,10 @@ def _default_source_catalog() -> dict[str, Any]:
                     "https://lobste.rs/t/ml.json",
                 ],
             },
+            "netlify": {
+                "enabled": True,
+                "weight": 0.8,
+            },
         },
     }
 
@@ -217,6 +221,7 @@ class Settings:
     enable_arxiv: bool
     enable_deepmind: bool
     enable_lobsters: bool
+    enable_netlify: bool
     hackernews_queries: list[str]
     rss_feeds: list[str]
     github_queries: list[str]
@@ -275,6 +280,7 @@ def get_settings() -> Settings:
         enable_arxiv=_as_json_bool(source_sections["arxiv"].get("enabled"), True),
         enable_deepmind=_as_json_bool(source_sections["deepmind"].get("enabled"), True),
         enable_lobsters=_as_json_bool(source_sections["lobsters"].get("enabled"), True),
+        enable_netlify=_as_json_bool(source_sections["netlify"].get("enabled"), True),
         hackernews_queries=_as_json_list(source_sections["hackernews"].get("queries"), []),
         rss_feeds=_as_json_list(source_sections["rss"].get("feeds"), []),
         github_queries=_as_json_list(source_sections["github"].get("queries"), []),

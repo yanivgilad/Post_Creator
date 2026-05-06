@@ -6,6 +6,7 @@ from article_writer.sources.deepmind import DeepMindSource
 from article_writer.sources.github import GitHubSource
 from article_writer.sources.hackernews import HackerNewsSource
 from article_writer.sources.lobsters import LobstersSource
+from article_writer.sources.netlify import NetlifyBlogSource
 from article_writer.sources.product_hunt import ProductHuntSource
 from article_writer.sources.reddit import RedditSource
 from article_writer.sources.rss import RSSSource
@@ -20,6 +21,7 @@ ALL_SOURCE_ADAPTERS = (
     ArxivSource,
     DeepMindSource,
     LobstersSource,
+    NetlifyBlogSource,
 )
 
 

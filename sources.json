@@ -90,6 +90,10 @@
         "https://lobste.rs/t/ai.json",
         "https://lobste.rs/t/ml.json"
       ]
+    },
+    "netlify": {
+      "enabled": true,
+      "weight": 0.8
     }
   }
 }
