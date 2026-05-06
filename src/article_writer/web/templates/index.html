@@ -150,17 +150,6 @@
       .catch(function () {});
   }
 
-  var form = document.getElementById('run-form');
-  if (form) {
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      fetch('/api/runs/trigger', { method: 'POST' })
-        .then(function (r) {
-          if (r.ok || r.status === 409) startPolling();
-        });
-    });
-  }
-
   {% if is_running %}startPolling();{% endif %}
 })();
 </script>

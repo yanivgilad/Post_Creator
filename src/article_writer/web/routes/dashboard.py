@@ -106,6 +106,34 @@ def articles_view(request: Request, run_id: int | None = None):
     )
 
 
+@router.get("/runs/live")
+def run_live_view(request: Request):
+    state = request.app.state
+    return state.templates.TemplateResponse(
+        request,
+        "run_live.html",
+        {
+            "is_running": state.pipeline.is_running,
+            "live_run_id": getattr(state, "live_run_id", None),
+        },
+    )
+
+
+@router.get("/runs/{run_id}")
+def run_detail_view(request: Request, run_id: int):
+    run = request.app.state.store.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "run_detail.html",
+        {
+            "run": run,
+            "is_running": request.app.state.pipeline.is_running,
+        },
+    )
+
+
 @router.get("/drafts")
 def drafts_redirect(request: Request, run_id: int | None = None):
     target = "/articles"
@@ -193,4 +221,4 @@ def trigger_run(request: Request, background_tasks: BackgroundTasks):
     if request.app.state.pipeline.is_running:
         return RedirectResponse(url="/?message=run-already-in-progress", status_code=303)
     background_tasks.add_task(_background_run, request.app.state.pipeline, request.app.state)
-    return RedirectResponse(url="/?message=run-scheduled", status_code=303)
+    return RedirectResponse(url="/runs/live", status_code=303)

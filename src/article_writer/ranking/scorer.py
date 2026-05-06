@@ -7,7 +7,10 @@ from article_writer.config import Settings
 from article_writer.models import RankedTrend, SourceItem, normalize_url
 
 
-def rank_items(items: list[SourceItem], settings: Settings, prior_urls: set[str]) -> list[RankedTrend]:
+def rank_items(
+    items: list[SourceItem], settings: Settings, prior_urls: set[str]
+) -> tuple[list[RankedTrend], list[RankedTrend]]:
+    """Return (top_n_ranked, all_scored) — all_scored is sorted by score desc."""
     now = datetime.now(timezone.utc)
     unique_items: dict[str, SourceItem] = {}
     for item in items:
@@ -18,7 +21,7 @@ def rank_items(items: list[SourceItem], settings: Settings, prior_urls: set[str]
         if existing is None or item.engagement_score > existing.engagement_score:
             unique_items[item.dedup_key] = item
 
-    ranked_items: list[tuple[float, SourceItem, list[str], str]] = []
+    scored: list[tuple[float, SourceItem, list[str], str]] = []
     for item in unique_items.values():
         age_hours = max((now - item.published_at).total_seconds() / 3600, 0.1)
         recency_score = max(settings.since_hours - age_hours, 0.0) / max(settings.since_hours, 1) * 5.0
@@ -40,21 +43,21 @@ def rank_items(items: list[SourceItem], settings: Settings, prior_urls: set[str]
                 if key in item.metadata:
                     evidence.append(f"{key.replace('_', ' ').title()}: {item.metadata[key]}")
         reason_summary = _reason_summary(item, age_hours, keyword_hits)
-        ranked_items.append((total, item, evidence, reason_summary))
+        scored.append((total, item, evidence, reason_summary))
 
-    ranked_items.sort(key=lambda value: value[0], reverse=True)
-    results: list[RankedTrend] = []
-    for score, item, evidence, reason_summary in ranked_items[: settings.top_n]:
-        results.append(
-            RankedTrend(
-                source_item=item,
-                score=round(score, 2),
-                reason_summary=reason_summary,
-                evidence=evidence,
-                supporting_urls=[item.url],
-            )
+    scored.sort(key=lambda value: value[0], reverse=True)
+    all_scored = [
+        RankedTrend(
+            source_item=item,
+            score=round(score, 2),
+            reason_summary=reason_summary,
+            evidence=evidence,
+            supporting_urls=[item.url],
         )
-    return results
+        for score, item, evidence, reason_summary in scored
+    ]
+    top_n = all_scored[: settings.top_n]
+    return top_n, all_scored
 
 
 def _keyword_hits(item: SourceItem, settings: Settings) -> int:

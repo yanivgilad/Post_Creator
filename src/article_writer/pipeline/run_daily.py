@@ -33,11 +33,13 @@ class DailyPipeline:
     def is_running(self) -> bool:
         return self._lock.locked()
 
-    def run(self, triggered_by: str = "scheduler") -> int:
+    def run(self, triggered_by: str = "scheduler", *, on_run_created=None) -> int:
         if not self._lock.acquire(blocking=False):
             raise RuntimeError("A pipeline run is already in progress")
 
         run_id = self.store.create_run(triggered_by)
+        if on_run_created is not None:
+            on_run_created(run_id)
         errors: list[str] = []
         all_items = []
 
@@ -58,10 +60,11 @@ class DailyPipeline:
             recent_urls = {normalize_url(url) for url in self.store.recent_urls(self.settings.dedup_days)}
             unique_count = len({item.dedup_key for item in all_items})
             logger.info("Ranking %d items (%d unique)...", len(all_items), unique_count)
-            ranked = rank_items(all_items, self.settings, recent_urls)
+            ranked, all_scored = rank_items(all_items, self.settings, recent_urls)
             self._log_ranked_preview(ranked)
             snapshot = PipelineSnapshot(
                 ranked_trends=ranked,
+                all_scored_items=all_scored,
                 drafts=[],
                 raw_item_count=len(all_items),
                 unique_item_count=unique_count,

@@ -69,7 +69,7 @@
       ]
     },
     "arxiv": {
-      "enabled": true,
+      "enabled": false,
       "weight": 1.2,
       "feeds": [
         "https://rss.arxiv.org/rss/cs.AI",

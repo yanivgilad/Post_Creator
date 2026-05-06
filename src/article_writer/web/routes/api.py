@@ -35,9 +35,11 @@ def _background_run(pipeline, app_state=None) -> None:
         logging.getLogger().addHandler(handler)
 
     try:
-        captured_run_id = pipeline.run("manual")
-        if app_state is not None:
-            app_state.live_run_id = captured_run_id
+        def _on_run_created(rid: int) -> None:
+            if app_state is not None:
+                app_state.live_run_id = rid
+
+        captured_run_id = pipeline.run("manual", on_run_created=_on_run_created)
     except Exception:
         pass
     finally:

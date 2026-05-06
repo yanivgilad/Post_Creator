@@ -69,3 +69,4 @@ class PipelineSnapshot:
     raw_item_count: int
     unique_item_count: int
     errors: list[str] = field(default_factory=list)
+    all_scored_items: list[RankedTrend] = field(default_factory=list)

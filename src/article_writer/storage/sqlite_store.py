@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, create_engine, select
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 from article_writer.config import Settings
@@ -49,6 +49,7 @@ class TrendRecord(Base):
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     engagement_score: Mapped[float] = mapped_column(Float, default=0.0)
     rank_score: Mapped[float] = mapped_column(Float, default=0.0)
+    is_ranked: Mapped[bool] = mapped_column(Boolean, default=True)
     reason_summary: Mapped[str] = mapped_column(Text)
     evidence_json: Mapped[str] = mapped_column(Text, default="[]")
     supporting_urls_json: Mapped[str] = mapped_column(Text, default="[]")
@@ -105,10 +106,13 @@ class SQLiteStore:
     def _migrate(self) -> None:
         from sqlalchemy import inspect, text as sa_text
 
-        cols = {c["name"] for c in inspect(self._engine).get_columns("pipeline_runs")}
+        run_cols = {c["name"] for c in inspect(self._engine).get_columns("pipeline_runs")}
+        trend_cols = {c["name"] for c in inspect(self._engine).get_columns("trends")}
         with self._engine.begin() as conn:
-            if "log_text" not in cols:
+            if "log_text" not in run_cols:
                 conn.execute(sa_text("ALTER TABLE pipeline_runs ADD COLUMN log_text TEXT"))
+            if "is_ranked" not in trend_cols:
+                conn.execute(sa_text("ALTER TABLE trends ADD COLUMN is_ranked INTEGER NOT NULL DEFAULT 1"))
 
     def create_run(self, triggered_by: str) -> int:
         with self.session() as session:
@@ -134,23 +138,26 @@ class SQLiteStore:
             run.unique_item_count = snapshot.unique_item_count
             run.error_text = "\n".join(snapshot.errors) if snapshot.errors else None
 
-            for ranked in snapshot.ranked_trends:
+            ranked_keys = {r.source_item.dedup_key for r in snapshot.ranked_trends}
+            items_to_save = snapshot.all_scored_items if snapshot.all_scored_items else snapshot.ranked_trends
+            for trend in items_to_save:
                 session.add(
                     TrendRecord(
                         run_id=run.id,
-                        source_name=ranked.source_item.source_name,
-                        external_id=ranked.source_item.external_id,
-                        title=ranked.source_item.title,
-                        url=ranked.source_item.url,
-                        summary=ranked.source_item.summary,
-                        author=ranked.source_item.author,
-                        published_at=ranked.source_item.published_at,
-                        engagement_score=ranked.source_item.engagement_score,
-                        rank_score=ranked.score,
-                        reason_summary=ranked.reason_summary,
-                        evidence_json=json.dumps(ranked.evidence),
-                        supporting_urls_json=json.dumps(ranked.supporting_urls),
-                        metadata_json=json.dumps(ranked.source_item.metadata),
+                        source_name=trend.source_item.source_name,
+                        external_id=trend.source_item.external_id,
+                        title=trend.source_item.title,
+                        url=trend.source_item.url,
+                        summary=trend.source_item.summary,
+                        author=trend.source_item.author,
+                        published_at=trend.source_item.published_at,
+                        engagement_score=trend.source_item.engagement_score,
+                        rank_score=trend.score,
+                        is_ranked=trend.source_item.dedup_key in ranked_keys,
+                        reason_summary=trend.reason_summary,
+                        evidence_json=json.dumps(trend.evidence),
+                        supporting_urls_json=json.dumps(trend.supporting_urls),
+                        metadata_json=json.dumps(trend.source_item.metadata),
                     )
                 )
 
@@ -202,7 +209,13 @@ class SQLiteStore:
             if row is None:
                 return None
             payload = self._serialize_run(row)
-            payload["trends"] = [self._serialize_trend(item) for item in row.trends]
+            all_trends = sorted(
+                [self._serialize_trend(item) for item in row.trends],
+                key=lambda t: t["rank_score"],
+                reverse=True,
+            )
+            payload["trends"] = [t for t in all_trends if t["is_ranked"]]
+            payload["all_scored_items"] = all_trends
             payload["drafts"] = [self._serialize_draft(item) for item in row.drafts]
             payload["articles"] = self.list_articles(run_id=run_id)
             return payload
@@ -302,6 +315,7 @@ class SQLiteStore:
             "published_at": row.published_at,
             "engagement_score": row.engagement_score,
             "rank_score": row.rank_score,
+            "is_ranked": row.is_ranked,
             "reason_summary": row.reason_summary,
             "evidence": json.loads(row.evidence_json),
             "supporting_urls": json.loads(row.supporting_urls_json),

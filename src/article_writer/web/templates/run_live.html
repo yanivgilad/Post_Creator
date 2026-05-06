@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Live Run{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;">
+      <div>
+        <h2 id="live-heading">Pipeline Run In Progress</h2>
+        <p class="muted" id="live-status">Starting up — waiting for the pipeline to begin…</p>
+      </div>
+      <a class="button ghost" href="/history">History</a>
+    </div>
+    <div>
+      <p class="muted" style="font-size:13px;margin-bottom:6px;">Live Log</p>
+      <pre id="live-log" style="max-height:500px;overflow-y:auto;font-size:11px;background:#f5f5f5;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all;"></pre>
+    </div>
+  </section>
+
+  <script>
+  (function () {
+    var logEl = document.getElementById('live-log');
+    var statusEl = document.getElementById('live-status');
+    var timer = null;
+    var attempts = 0;
+
+    function poll() {
+      fetch('/api/runs/live-log')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          attempts++;
+          if (data.lines && data.lines.length) {
+            logEl.textContent = data.lines.join('\n');
+            logEl.scrollTop = logEl.scrollHeight;
+            statusEl.textContent = 'Collecting and ranking items — you will be redirected when the run finishes.';
+          }
+          if (data.run_id && !data.is_running) {
+            clearInterval(timer);
+            statusEl.textContent = 'Run complete. Redirecting…';
+            window.location.replace('/runs/' + data.run_id);
+          } else if (!data.is_running && attempts > 3) {
+            clearInterval(timer);
+            statusEl.textContent = 'No active run detected. Check history for results.';
+          }
+        })
+        .catch(function () {});
+    }
+
+    timer = setInterval(poll, 2000);
+    poll();
+  })();
+  </script>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Run #{{ run.id }}{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div>
+        <h2 style="margin-bottom:6px;">Run #{{ run.id }}</h2>
+        <div class="meta">
+          <span class="status {{ run.status }}">{{ run.status }}</span>
+          {% if run.triggered_by %}<span class="muted">triggered by {{ run.triggered_by }}</span>{% endif %}
+          {% if run.started_at %}<span class="muted">started {{ run.started_at }}</span>{% endif %}
+          {% if run.completed_at %}<span class="muted">completed {{ run.completed_at }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="actions" style="margin-top:0;">
+        <a class="button ghost" href="/history">All Runs</a>
+        {% if run.trends %}
+          <a class="button secondary" href="/articles?run_id={{ run.id }}">Articles</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="kpis" style="margin-top:20px;margin-bottom:0;">
+      <div style="padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,0.7);">
+        <div class="kpi-label">Sources</div>
+        <div class="kpi-value" style="font-size:26px;">{{ run.source_count or 0 }}</div>
+      </div>
+      <div style="padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,0.7);">
+        <div class="kpi-label">Raw Items</div>
+        <div class="kpi-value" style="font-size:26px;">{{ run.raw_item_count or 0 }}</div>
+      </div>
+      <div style="padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,0.7);">
+        <div class="kpi-label">Unique Items</div>
+        <div class="kpi-value" style="font-size:26px;">{{ run.unique_item_count or 0 }}</div>
+      </div>
+      <div style="padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,0.7);">
+        <div class="kpi-label">Ranked Trends</div>
+        <div class="kpi-value" style="font-size:26px;">{{ run.trends | length }}</div>
+      </div>
+      <div style="padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,0.7);">
+        <div class="kpi-label">Scored Items</div>
+        <div class="kpi-value" style="font-size:26px;">{{ (run.all_scored_items or run.trends) | length }}</div>
+      </div>
+    </div>
+  </section>
+
+  {% if run.error_text %}
+    <section class="card" style="margin-top:16px;border-color:rgba(180,35,24,0.3);background:rgba(180,35,24,0.04);">
+      <h3 style="color:var(--danger);margin-top:0;">Errors</h3>
+      <pre style="background:rgba(180,35,24,0.06);border-color:rgba(180,35,24,0.18);font-size:12px;">{{ run.error_text }}</pre>
+    </section>
+  {% endif %}
+
+  {% if run.log_text %}
+    <section class="card" style="margin-top:16px;">
+      <h3 style="margin-top:0;">Run Log</h3>
+      <pre style="max-height:420px;overflow-y:auto;font-size:11px;background:#f5f5f5;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all;">{{ run.log_text }}</pre>
+    </section>
+  {% endif %}
+
+  <section class="card" style="margin-top:16px;">
+    <h3 style="margin-top:0;">
+      Collected Items
+      {% if run.all_scored_items %}
+        <span class="muted" style="font-size:14px;font-weight:400;margin-left:8px;">{{ run.all_scored_items | length }} scored</span>
+      {% endif %}
+    </h3>
+    {% set items = run.all_scored_items if run.all_scored_items else run.trends %}
+    {% if items %}
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px;">#</th>
+            <th style="width:70px;">Score</th>
+            <th style="width:90px;">Source</th>
+            <th>Title</th>
+            <th>Reason</th>
+            <th style="width:120px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trend in items %}
+            <tr style="{% if not trend.is_ranked %}opacity:0.6;{% endif %}">
+              <td>{{ loop.index }}</td>
+              <td>
+                <strong>{{ "%.2f"|format(trend.rank_score or 0) }}</strong>
+                {% if trend.is_ranked %}
+                  <span title="Top ranked" style="color:var(--accent);margin-left:3px;">★</span>
+                {% endif %}
+              </td>
+              <td><span class="muted" style="font-size:13px;">{{ trend.source_name }}</span></td>
+              <td>
+                <a href="{{ trend.url }}" target="_blank" rel="noreferrer" style="color:var(--accent);">{{ trend.title }}</a>
+                {% if trend.summary %}
+                  <p class="muted" style="font-size:13px;margin:4px 0 0;">{{ trend.summary[:160] }}{% if trend.summary | length > 160 %}…{% endif %}</p>
+                {% endif %}
+              </td>
+              <td style="font-size:13px;color:var(--muted);">{{ trend.reason_summary }}</td>
+              <td>
+                {% if trend.is_ranked %}
+                  <a class="button ghost" style="font-size:12px;padding:7px 11px;" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">No items for this run.</div>
+    {% endif %}
+  </section>
+{% endblock %}

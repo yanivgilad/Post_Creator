@@ -23,7 +23,7 @@
               <td><span class="status {{ run.status }}">{{ run.status }}</span></td>
               <td>{{ run.started_at or run.created_at }}</td>
               <td>{{ run.raw_item_count }}</td>
-              <td><a class="button ghost" href="/trends?run_id={{ run.id }}">Trends</a></td>
+              <td><a class="button ghost" href="/runs/{{ run.id }}">View Run</a></td>
             </tr>
           {% endfor %}
         </tbody>
