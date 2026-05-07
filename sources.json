@@ -39,7 +39,10 @@
       "subreddits": [
         "MachineLearning",
         "LocalLLaMA",
-        "artificial"
+        "artificial",
+        "claudeAI",
+        "cursor",
+        "tech"
       ]
     },
     "github": {
