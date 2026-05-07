@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 
 from article_writer.config import Settings
 from article_writer.models import SourceItem
 from article_writer.sources.base import SourceAdapter, matches_keywords, parse_datetime, strip_html, truncate_text
+
+
+logger = logging.getLogger(__name__)
 
 
 class RedditSource(SourceAdapter):
@@ -17,7 +21,11 @@ class RedditSource(SourceAdapter):
         items: dict[str, SourceItem] = {}
         for subreddit in settings.reddit_subreddits:
             url = f"https://www.reddit.com/r/{subreddit}/new.json?limit=25"
-            payload = self._get_json(url, settings)
+            try:
+                payload = self._get_json(url, settings)
+            except Exception as exc:
+                logger.warning("[reddit] subreddit failed r/%s: %s", subreddit, exc)
+                continue
             children = payload.get("data", {}).get("children", [])
             for child in children:
                 data = child.get("data", {})

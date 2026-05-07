@@ -20,7 +20,12 @@
     "autonomous",
     "self-driving",
     "robotics",
-    "multimodal"
+    "multimodal",
+    "quant",
+    "algotrading",
+    "trading bot",
+    "market prediction",
+    "alpha generation"
   ],
   "sources": {
     "hackernews": {
@@ -42,7 +47,11 @@
         "artificial",
         "claudeAI",
         "cursor",
-        "tech"
+        "tech",
+        "algotrading",
+        "quant",
+        "quantfinance",
+        "algorithmictrading"
       ]
     },
     "github": {
@@ -68,7 +77,18 @@
         "https://www.apple.com/newsroom/rss-feed.rss",
         "https://simonwillison.net/atom/everything/",
         "https://lastweekin.ai/feed",
-        "https://ir.tesla.com/rss.xml"
+        "https://ir.tesla.com/rss.xml",
+        "https://the-decoder.com/feed/",
+        "https://venturebeat.com/feed/",
+        "https://www.marktechpost.com/feed/",
+        "https://www.artificialintelligence-news.com/feed/",
+        "https://blog.google/technology/ai/rss/",
+        "https://blogs.nvidia.com/feed/",
+        "https://www.latent.space/feed",
+        "https://importai.substack.com/feed",
+        "https://alphaarchitect.com/feed/",
+        "https://www.quantstart.com/feed/",
+        "https://robotwealth.com/feed/"
       ]
     },
     "arxiv": {

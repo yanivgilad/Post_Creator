@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 
 from article_writer.config import Settings
 from article_writer.models import SourceItem
 from article_writer.sources.base import SourceAdapter, matches_keywords, parse_datetime, truncate_text
+
+
+logger = logging.getLogger(__name__)
 
 
 class LobstersSource(SourceAdapter):
@@ -18,11 +22,11 @@ class LobstersSource(SourceAdapter):
         for endpoint in settings.lobsters_endpoints:
             try:
                 stories = self._get_json(endpoint, settings)
-            except Exception:
-                # NOTE: endpoint returned a non-standard or unparseable response
+            except Exception as exc:
+                logger.warning("[lobsters] endpoint failed %s: %s", endpoint, exc)
                 continue
             if not isinstance(stories, list):
-                # NOTE: unexpected top-level format; expected a JSON array of story objects
+                logger.warning("[lobsters] endpoint returned unexpected format %s", endpoint)
                 continue
             for story in stories:
                 if not isinstance(story, dict):

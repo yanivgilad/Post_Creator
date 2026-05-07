@@ -30,8 +30,8 @@ It's NOT OK to:
 - Be sarcastic in a way that's mean or dismissive
 
 ## Format rules
-- Single tweet: Hook line + 1-2 sentences of actual substance about what the article covers. Use the full 280 characters — you have 257 of real text (URLs always cost 23 characters). Don't pad, but don't leave useful information on the table either. Someone should know what they're clicking into before they click.
-- Thread (3-5 tweets): for topics that genuinely need unpacking. Use ONLY when the insight has multiple distinct points.
+- Single tweet: Hook line + 2-3 sentences of actual substance about what the article covers. Up to 25,000 characters are available, but that doesn't mean use them. Default target is 400-600 characters of real text — enough to give a complete thought with real information, not enough to become an essay. URLs always cost 23 characters regardless of length. Don't pad, but don't leave useful information on the table either. Someone should know what they're clicking into before they click.
+- Thread: Use when the topic genuinely has 3-5 distinct points worth unpacking. Each tweet in the thread should stand alone as a complete thought. First tweet must work as a standalone — someone should want to share it without reading the rest.
 - First tweet is always the hook. It must stand alone — someone should want to RT it even if they don't click the thread.
 - Max 2 hashtags, placed at the END, never mid-sentence
 - Don't start with "So," or "Okay so" or "Hot take:"

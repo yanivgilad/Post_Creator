@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 
 from article_writer.config import Settings
 from article_writer.models import SourceItem
@@ -12,6 +13,9 @@ from article_writer.sources.base import (
     strip_html,
     truncate_text,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class DeepMindSource(SourceAdapter):
@@ -29,9 +33,9 @@ class DeepMindSource(SourceAdapter):
                     settings,
                     headers={"Accept": "application/rss+xml, application/xml, */*"},
                 )
-                entries = iter_xml_entries(xml_text)
-            except Exception:
-                # NOTE: feed returned a non-standard or unparseable format
+                entries = list(iter_xml_entries(xml_text))
+            except Exception as exc:
+                logger.warning("[deepmind] feed failed %s: %s", feed_url, exc)
                 continue
 
             for entry in entries:

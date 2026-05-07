@@ -2,6 +2,45 @@
 
 {% block title %}Run #{{ run.id }}{% endblock %}
 
+{% macro items_table(rows) %}
+  <table>
+    <thead>
+      <tr>
+        <th style="width:40px;">#</th>
+        <th style="width:70px;">Score</th>
+        <th style="width:90px;">Source</th>
+        <th>Title</th>
+        <th>Reason</th>
+        <th style="width:120px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for trend in rows %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>
+            <strong>{{ "%.2f"|format(trend.rank_score or 0) }}</strong>
+            {% if trend.is_ranked %}
+              <span title="Top ranked" style="color:var(--accent);margin-left:3px;">★</span>
+            {% endif %}
+          </td>
+          <td><span class="muted" style="font-size:13px;">{{ trend.source_name }}</span></td>
+          <td>
+            <a href="{{ trend.url }}" target="_blank" rel="noreferrer" style="color:var(--accent);">{{ trend.title }}</a>
+            {% if trend.summary %}
+              <p class="muted" style="font-size:13px;margin:4px 0 0;">{{ trend.summary[:160] }}{% if trend.summary | length > 160 %}…{% endif %}</p>
+            {% endif %}
+          </td>
+          <td style="font-size:13px;color:var(--muted);">{{ trend.reason_summary }}</td>
+          <td>
+            <a class="button ghost" style="font-size:12px;padding:7px 11px;" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endmacro %}
+
 {% block content %}
   <section class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -69,44 +108,61 @@
     </h3>
     {% set items = run.all_scored_items if run.all_scored_items else run.trends %}
     {% if items %}
-      <table>
-        <thead>
-          <tr>
-            <th style="width:40px;">#</th>
-            <th style="width:70px;">Score</th>
-            <th style="width:90px;">Source</th>
-            <th>Title</th>
-            <th>Reason</th>
-            <th style="width:120px;"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for trend in items %}
-            <tr style="{% if not trend.is_ranked %}opacity:0.6;{% endif %}">
-              <td>{{ loop.index }}</td>
-              <td>
-                <strong>{{ "%.2f"|format(trend.rank_score or 0) }}</strong>
-                {% if trend.is_ranked %}
-                  <span title="Top ranked" style="color:var(--accent);margin-left:3px;">★</span>
-                {% endif %}
-              </td>
-              <td><span class="muted" style="font-size:13px;">{{ trend.source_name }}</span></td>
-              <td>
-                <a href="{{ trend.url }}" target="_blank" rel="noreferrer" style="color:var(--accent);">{{ trend.title }}</a>
-                {% if trend.summary %}
-                  <p class="muted" style="font-size:13px;margin:4px 0 0;">{{ trend.summary[:160] }}{% if trend.summary | length > 160 %}…{% endif %}</p>
-                {% endif %}
-              </td>
-              <td style="font-size:13px;color:var(--muted);">{{ trend.reason_summary }}</td>
-              <td>
-                {% if trend.is_ranked %}
-                  <a class="button ghost" style="font-size:12px;padding:7px 11px;" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      {% set sources = items | map(attribute='source_name') | unique | list | sort %}
+      <style>
+        .source-tabs { display: block; }
+        .source-tabs input[type="radio"] { display: none; }
+        .source-tabs > label {
+          display: inline-block;
+          padding: 8px 14px;
+          margin: 0 6px 8px 0;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          cursor: pointer;
+          font-size: 14px;
+          background: rgba(24,33,42,0.04);
+        }
+        .source-tabs > label .count {
+          margin-left: 6px;
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .source-tabs > label:hover { background: rgba(13,148,136,0.08); }
+        .source-tabs .pane { display: none; margin-top: 16px; }
+        {# Highlight checked tab labels and reveal matching panes for each source. #}
+        #src-tab-{{ run.id }}-all:checked ~ label[for="src-tab-{{ run.id }}-all"]{% for src in sources %},
+        #src-tab-{{ run.id }}-{{ src }}:checked ~ label[for="src-tab-{{ run.id }}-{{ src }}"]{% endfor %} {
+          background: var(--accent);
+          color: white;
+          border-color: var(--accent);
+        }
+        #src-tab-{{ run.id }}-all:checked ~ label[for="src-tab-{{ run.id }}-all"] .count{% for src in sources %},
+        #src-tab-{{ run.id }}-{{ src }}:checked ~ label[for="src-tab-{{ run.id }}-{{ src }}"] .count{% endfor %} {
+          color: rgba(255,255,255,0.85);
+        }
+        #src-tab-{{ run.id }}-all:checked ~ .pane-all{% for src in sources %},
+        #src-tab-{{ run.id }}-{{ src }}:checked ~ .pane-{{ src }}{% endfor %} {
+          display: block;
+        }
+      </style>
+      <div class="source-tabs">
+        <input type="radio" name="src-tab-{{ run.id }}" id="src-tab-{{ run.id }}-all" checked />
+        {% for src in sources %}
+          <input type="radio" name="src-tab-{{ run.id }}" id="src-tab-{{ run.id }}-{{ src }}" />
+        {% endfor %}
+
+        <label for="src-tab-{{ run.id }}-all">All <span class="count">{{ items | length }}</span></label>
+        {% for src in sources %}
+          {% set src_items = items | selectattr('source_name', 'equalto', src) | list %}
+          <label for="src-tab-{{ run.id }}-{{ src }}">{{ src }} <span class="count">{{ src_items | length }}</span></label>
+        {% endfor %}
+
+        <div class="pane pane-all">{{ items_table(items) }}</div>
+        {% for src in sources %}
+          {% set src_items = items | selectattr('source_name', 'equalto', src) | list %}
+          <div class="pane pane-{{ src }}">{{ items_table(src_items) }}</div>
+        {% endfor %}
+      </div>
     {% else %}
       <div class="empty">No items for this run.</div>
     {% endif %}

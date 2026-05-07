@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 
 from article_writer.config import Settings
 from article_writer.models import SourceItem
 from article_writer.sources.base import SourceAdapter, encoded_query, matches_keywords, parse_datetime, truncate_text
+
+
+logger = logging.getLogger(__name__)
 
 
 class HackerNewsSource(SourceAdapter):
@@ -21,7 +25,11 @@ class HackerNewsSource(SourceAdapter):
                 "https://hn.algolia.com/api/v1/search_by_date"
                 f"?query={encoded_query(query)}&tags=story&hitsPerPage=20&numericFilters=created_at_i>{timestamp}"
             )
-            payload = self._get_json(url, settings)
+            try:
+                payload = self._get_json(url, settings)
+            except Exception as exc:
+                logger.warning("[hackernews] query failed %r: %s", query, exc)
+                continue
             for hit in payload.get("hits", []):
                 title = hit.get("title") or hit.get("story_title") or ""
                 article_url = hit.get("url") or hit.get("story_url")

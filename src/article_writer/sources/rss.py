@@ -33,12 +33,13 @@ class RSSSource(SourceAdapter):
                     settings,
                     headers={"Accept": "application/rss+xml, application/atom+xml"},
                 )
+                entries = list(iter_xml_entries(xml_text))
             except Exception as exc:
                 logger.warning("[rss] feed failed %s: %s", feed_url, exc)
                 continue
 
             feed_item_count = 0
-            for entry in iter_xml_entries(xml_text):
+            for entry in entries:
                 title = child_text(entry, "title") or ""
                 url = child_text(entry, "link") or ""
                 if not url:

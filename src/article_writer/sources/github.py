@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 
 from article_writer.config import Settings
 from article_writer.models import SourceItem
 from article_writer.sources.base import SourceAdapter, encoded_query, matches_keywords, parse_datetime, truncate_text
+
+
+logger = logging.getLogger(__name__)
 
 
 class GitHubSource(SourceAdapter):
@@ -23,7 +27,11 @@ class GitHubSource(SourceAdapter):
         for query in settings.github_queries:
             search = encoded_query(f"{query} created:>{since_date}")
             url = f"https://api.github.com/search/repositories?q={search}&sort=stars&order=desc&per_page=10"
-            payload = self._get_json(url, settings, headers=headers)
+            try:
+                payload = self._get_json(url, settings, headers=headers)
+            except Exception as exc:
+                logger.warning("[github] query failed %r: %s", query, exc)
+                continue
             for repo in payload.get("items", []):
                 title = repo.get("full_name") or repo.get("name") or ""
                 repo_url = repo.get("html_url")
