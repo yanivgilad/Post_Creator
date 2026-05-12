@@ -25,75 +25,246 @@
     "algotrading",
     "trading bot",
     "market prediction",
-    "alpha generation"
+    "alpha generation",
+    "gaming",
+    "video game",
+    "videogame",
+    "console",
+    "xbox",
+    "playstation",
+    "ps5",
+    "ps6",
+    "nintendo",
+    "switch 2",
+    "steam deck",
+    "fortnite",
+    "epic games",
+    "ubisoft",
+    "blizzard",
+    "activision",
+    "take-two",
+    "take two",
+    "rockstar",
+    "gta",
+    "grand theft auto",
+    "ea sports",
+    "electronic arts",
+    "bethesda",
+    "valve",
+    "esports",
+    "game pass",
+    "unreal engine",
+    "unity engine",
+    "nvidia",
+    "amd",
+    "intel",
+    "micron",
+    "samsung",
+    "tsmc",
+    "asml",
+    "qualcomm",
+    "arm holdings",
+    "cuda",
+    "rocm",
+    "gpu",
+    "cpu",
+    "gddr",
+    "hbm",
+    "ddr5",
+    "datacenter",
+    "semiconductor",
+    "silicon",
+    "lithography",
+    "foundry",
+    "wafer",
+    "fab",
+    "h100",
+    "h200",
+    "b100",
+    "b200",
+    "mi300",
+    "ryzen",
+    "epyc",
+    "threadripper",
+    "rdna",
+    "rtx",
+    "geforce",
+    "radeon",
+    "raptor lake",
+    "arrow lake",
+    "arc battlemage"
   ],
   "sources": {
     "hackernews": {
       "enabled": true,
       "weight": 1.0,
-      "queries": [
-        "AI",
-        "LLM",
-        "agent",
-        "open source ai"
-      ]
+      "streams": {
+        "software": {
+          "queries": ["AI", "LLM", "agent", "open source ai"]
+        },
+        "gaming": {
+          "queries": ["xbox", "playstation", "nintendo", "fortnite", "ubisoft", "blizzard", "bethesda"]
+        },
+        "hardware": {
+          "queries": ["nvidia", "amd", "intel", "tsmc", "semiconductor", "gpu"]
+        }
+      }
     },
     "reddit": {
       "enabled": true,
       "weight": 0.9,
-      "subreddits": [
-        "MachineLearning",
-        "LocalLLaMA",
-        "artificial",
-        "claudeAI",
-        "cursor",
-        "tech",
-        "algotrading",
-        "quant",
-        "quantfinance",
-        "algorithmictrading"
-      ]
+      "streams": {
+        "software": {
+          "subreddits": [
+            "MachineLearning",
+            "LocalLLaMA",
+            "artificial",
+            "claudeAI",
+            "cursor",
+            "tech",
+            "algotrading",
+            "quant",
+            "quantfinance",
+            "algorithmictrading"
+          ]
+        },
+        "gaming": {
+          "subreddits": [
+            "Games",
+            "gaming",
+            "GamingLeaksAndRumours",
+            "xbox",
+            "XboxSeriesX",
+            "PS5",
+            "playstation",
+            "NintendoSwitch",
+            "Switch",
+            "FortNiteBR",
+            "FortniteCompetitive",
+            "Ubisoft",
+            "wow",
+            "Overwatch",
+            "Diablo",
+            "GTA",
+            "GrandTheftAutoV_6",
+            "Bethesda",
+            "Starfield",
+            "Fallout",
+            "skyrim",
+            "elderscrollsonline",
+            "pcgaming",
+            "Steam",
+            "truegaming"
+          ]
+        },
+        "hardware": {
+          "subreddits": [
+            "hardware",
+            "nvidia",
+            "Amd",
+            "intel",
+            "buildapc",
+            "pcmasterrace",
+            "datacenter",
+            "homelab",
+            "semiconductors"
+          ]
+        }
+      }
     },
     "github": {
       "enabled": true,
       "weight": 1.1,
-      "queries": [
-        "llm",
-        "ai agent",
-        "open source ai"
-      ]
+      "streams": {
+        "software": {
+          "queries": ["llm", "ai agent", "open source ai"]
+        },
+        "hardware": {
+          "queries": ["cuda", "rocm", "gpu kernel"]
+        }
+      }
     },
     "product_hunt": {
       "enabled": false,
-      "weight": 1.0
+      "weight": 1.0,
+      "stream": "software"
     },
     "rss": {
       "enabled": true,
       "weight": 0.8,
-      "feeds": [
-        "https://openai.com/news/rss.xml",
-        "https://huggingface.co/blog/feed.xml",
-        "https://blogs.microsoft.com/feed/",
-        "https://www.apple.com/newsroom/rss-feed.rss",
-        "https://simonwillison.net/atom/everything/",
-        "https://lastweekin.ai/feed",
-        "https://ir.tesla.com/rss.xml",
-        "https://the-decoder.com/feed/",
-        "https://venturebeat.com/feed/",
-        "https://www.marktechpost.com/feed/",
-        "https://www.artificialintelligence-news.com/feed/",
-        "https://blog.google/technology/ai/rss/",
-        "https://blogs.nvidia.com/feed/",
-        "https://www.latent.space/feed",
-        "https://importai.substack.com/feed",
-        "https://alphaarchitect.com/feed/",
-        "https://www.quantstart.com/feed/",
-        "https://robotwealth.com/feed/"
-      ]
+      "streams": {
+        "software": {
+          "feeds": [
+            "https://openai.com/news/rss.xml",
+            "https://huggingface.co/blog/feed.xml",
+            "https://blogs.microsoft.com/feed/",
+            "https://www.apple.com/newsroom/rss-feed.rss",
+            "https://simonwillison.net/atom/everything/",
+            "https://lastweekin.ai/feed",
+            "https://ir.tesla.com/rss.xml",
+            "https://the-decoder.com/feed/",
+            "https://venturebeat.com/feed/",
+            "https://www.marktechpost.com/feed/",
+            "https://www.artificialintelligence-news.com/feed/",
+            "https://blog.google/technology/ai/rss/",
+            "https://www.latent.space/feed",
+            "https://importai.substack.com/feed",
+            "https://alphaarchitect.com/feed/",
+            "https://www.quantstart.com/feed/",
+            "https://robotwealth.com/feed/",
+            "https://bsky.app/profile/rasbt.bsky.social/rss",
+            "https://bsky.app/profile/emilymbender.bsky.social/rss",
+            "https://bsky.app/profile/mmitchell.bsky.social/rss",
+            "https://bsky.app/profile/hardmaru.bsky.social/rss",
+            "https://bsky.app/profile/yoshuabengio.bsky.social/rss",
+            "https://bsky.app/profile/replicate.bsky.social/rss",
+            "https://bsky.app/profile/howard.fm/rss"
+          ]
+        },
+        "gaming": {
+          "feeds": [
+            "https://feeds.feedburner.com/ign/all",
+            "https://www.polygon.com/rss/index.xml",
+            "https://kotaku.com/rss",
+            "https://www.gamespot.com/feeds/news/",
+            "https://www.eurogamer.net/?format=rss",
+            "https://www.gamedeveloper.com/rss.xml",
+            "https://www.vg247.com/feed",
+            "https://www.pcgamer.com/rss/",
+            "https://www.rockpapershotgun.com/feed",
+            "https://www.nintendolife.com/feeds/latest",
+            "https://www.pushsquare.com/feeds/latest",
+            "https://www.purexbox.com/feeds/latest",
+            "https://www.videogameschronicle.com/feed/",
+            "https://news.xbox.com/en-us/feed/",
+            "https://blog.playstation.com/feed/",
+            "https://news.ubisoft.com/en-us/rss",
+            "https://news.blizzard.com/en-us/rss",
+            "https://www.fortnite.com/news.rss",
+            "https://www.engadget.com/rss.xml"
+          ]
+        },
+        "hardware": {
+          "feeds": [
+            "https://blogs.nvidia.com/feed/",
+            "https://newsroom.intel.com/feed/",
+            "https://www.anandtech.com/rss/",
+            "https://www.tomshardware.com/feeds/all",
+            "https://www.servethehome.com/feed/",
+            "https://semiaccurate.com/feed/",
+            "https://www.theregister.com/Hardware/headlines.atom",
+            "https://news.samsung.com/global/feed",
+            "https://hothardware.com/rss/news",
+            "https://videocardz.com/feed",
+            "https://wccftech.com/feed/"
+          ]
+        }
+      }
     },
     "arxiv": {
       "enabled": false,
       "weight": 1.2,
+      "stream": "software",
       "feeds": [
         "https://rss.arxiv.org/rss/cs.AI",
         "https://rss.arxiv.org/rss/cs.LG"
@@ -102,6 +273,7 @@
     "deepmind": {
       "enabled": true,
       "weight": 0.9,
+      "stream": "software",
       "feeds": [
         "https://deepmind.google/blog/rss"
       ]
@@ -109,14 +281,24 @@
     "lobsters": {
       "enabled": true,
       "weight": 0.85,
-      "endpoints": [
-        "https://lobste.rs/t/ai.json",
-        "https://lobste.rs/t/ml.json"
-      ]
+      "streams": {
+        "software": {
+          "endpoints": [
+            "https://lobste.rs/t/ai.json",
+            "https://lobste.rs/t/ml.json"
+          ]
+        },
+        "hardware": {
+          "endpoints": [
+            "https://lobste.rs/t/hardware.json"
+          ]
+        }
+      }
     },
     "netlify": {
       "enabled": true,
-      "weight": 0.8
+      "weight": 0.8,
+      "stream": "software"
     }
   }
 }

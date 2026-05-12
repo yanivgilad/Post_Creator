@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-ARTICLE_LANGUAGE_OPTIONS = ("English", "Hebrew")
+ARTICLE_LANGUAGE_OPTIONS = ("Hebrew", "English")
 ARTICLE_PLATFORM_OPTIONS = ("Twitter/X", "LinkedIn", "Reddit", "Hashnode/Dev.to")
 
 _LANGUAGE_ALIASES = {

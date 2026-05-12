@@ -13,7 +13,11 @@ def test_rss_fetch_skips_failed_feeds_and_keeps_other_items(settings, monkeypatc
     current_settings = replace(
         settings,
         enable_rss=True,
-        rss_feeds=["https://bad.example/feed.xml", "https://good.example/feed.xml"],
+        rss_feeds={
+            "software": ["https://bad.example/feed.xml", "https://good.example/feed.xml"],
+            "gaming": [],
+            "hardware": [],
+        },
     )
     published_at = utc_now().strftime("%a, %d %b %Y %H:%M:%S +0000")
     xml_text = f"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>

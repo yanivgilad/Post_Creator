@@ -1,0 +1,19 @@
+{# usage: include with `streams`, `current_stream`, `base_url`, `extra_query` (optional) #}
+{% if streams %}
+  {% set extra = extra_query or '' %}
+  <nav class="stream-tabs">
+    <a href="{{ base_url }}{% if extra %}?{{ extra }}{% endif %}" class="{% if not current_stream %}active{% endif %}">
+      All
+    </a>
+    {% for stream in streams %}
+      {% set qs = 'stream=' ~ stream %}
+      {% if extra %}{% set qs = extra ~ '&' ~ qs %}{% endif %}
+      <a href="{{ base_url }}?{{ qs }}" class="{% if current_stream == stream %}active{% endif %}">
+        {{ stream | capitalize }}
+        {% if stream_counts and stream_counts.get(stream) %}
+          <span class="count">{{ stream_counts.get(stream) }}</span>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </nav>
+{% endif %}

@@ -41,6 +41,7 @@ class TrendRecord(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     run_id: Mapped[int] = mapped_column(ForeignKey("pipeline_runs.id"), index=True)
     source_name: Mapped[str] = mapped_column(String(64), index=True)
+    stream: Mapped[str] = mapped_column(String(32), default="software", index=True)
     external_id: Mapped[str] = mapped_column(String(256))
     title: Mapped[str] = mapped_column(String(512))
     url: Mapped[str] = mapped_column(String(1024), index=True)
@@ -113,6 +114,8 @@ class SQLiteStore:
                 conn.execute(sa_text("ALTER TABLE pipeline_runs ADD COLUMN log_text TEXT"))
             if "is_ranked" not in trend_cols:
                 conn.execute(sa_text("ALTER TABLE trends ADD COLUMN is_ranked INTEGER NOT NULL DEFAULT 1"))
+            if "stream" not in trend_cols:
+                conn.execute(sa_text("ALTER TABLE trends ADD COLUMN stream TEXT NOT NULL DEFAULT 'software'"))
 
     def create_run(self, triggered_by: str) -> int:
         with self.session() as session:
@@ -145,6 +148,7 @@ class SQLiteStore:
                     TrendRecord(
                         run_id=run.id,
                         source_name=trend.source_item.source_name,
+                        stream=trend.source_item.stream,
                         external_id=trend.source_item.external_id,
                         title=trend.source_item.title,
                         url=trend.source_item.url,
@@ -197,7 +201,7 @@ class SQLiteStore:
             return None
         return runs[0]
 
-    def get_run(self, run_id: int) -> dict[str, object] | None:
+    def get_run(self, run_id: int, stream: str | None = None) -> dict[str, object] | None:
         with self.session() as session:
             row = session.get(PipelineRunRecord, run_id)
             if row is None:
@@ -208,11 +212,24 @@ class SQLiteStore:
                 key=lambda t: t["rank_score"],
                 reverse=True,
             )
+            if stream is not None:
+                all_trends = [t for t in all_trends if t["stream"] == stream]
             payload["trends"] = [t for t in all_trends if t["is_ranked"]]
             payload["all_scored_items"] = all_trends
             payload["drafts"] = [self._serialize_draft(item) for item in row.drafts]
-            payload["articles"] = self.list_articles(run_id=run_id)
+            payload["articles"] = self.list_articles(run_id=run_id, stream=stream)
+            payload["stream_counts"] = self._stream_counts(row.trends)
+            payload["stream"] = stream
             return payload
+
+    @staticmethod
+    def _stream_counts(trends: Iterable[TrendRecord]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for trend in trends:
+            if not trend.is_ranked:
+                continue
+            counts[trend.stream] = counts.get(trend.stream, 0) + 1
+        return counts
 
     def list_trends(self, run_id: int | None = None, limit: int = 50) -> list[dict[str, object]]:
         with self.session() as session:
@@ -263,11 +280,18 @@ class SQLiteStore:
                 return None
             return self._serialize_article(row)
 
-    def list_articles(self, run_id: int | None = None, limit: int = 50) -> list[dict[str, object]]:
+    def list_articles(
+        self,
+        run_id: int | None = None,
+        limit: int = 50,
+        stream: str | None = None,
+    ) -> list[dict[str, object]]:
         with self.session() as session:
             query = select(ArticleRecord).join(TrendRecord).order_by(ArticleRecord.created_at.desc()).limit(limit)
             if run_id is not None:
                 query = query.where(TrendRecord.run_id == run_id)
+            if stream is not None:
+                query = query.where(TrendRecord.stream == stream)
             rows = session.scalars(query).all()
             return [self._serialize_article(row) for row in rows]
 
@@ -301,6 +325,7 @@ class SQLiteStore:
             "id": row.id,
             "run_id": row.run_id,
             "source_name": row.source_name,
+            "stream": row.stream,
             "external_id": row.external_id,
             "title": row.title,
             "url": row.url,

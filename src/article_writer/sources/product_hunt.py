@@ -49,7 +49,8 @@ class ProductHuntSource(SourceAdapter):
                 author=None,
                 published_at=published_at,
                 engagement_score=float(node.get("votesCount") or 0),
-                metadata={"votes": node.get("votesCount") or 0},
+                metadata={"votes": node.get("votesCount") or 0, "stream": settings.product_hunt_stream},
+                stream=settings.product_hunt_stream,
             )
             items[item.dedup_key] = item
         return list(items.values())

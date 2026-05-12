@@ -33,3 +33,4 @@ def test_lobsters_fetch_accepts_string_submitter_user(settings, monkeypatch):
     assert len(items) == 1
     assert items[0].author == "jedisct1"
     assert items[0].engagement_score == 45.0
+    assert items[0].stream == "software"

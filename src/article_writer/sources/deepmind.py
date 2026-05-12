@@ -65,7 +65,8 @@ class DeepMindSource(SourceAdapter):
                     author=child_text(entry, "author", "creator"),
                     published_at=published_at,
                     engagement_score=1.0,
-                    metadata={"feed_url": feed_url},
+                    metadata={"feed_url": feed_url, "stream": settings.deepmind_stream},
+                    stream=settings.deepmind_stream,
                 )
                 items[item.dedup_key] = item
         return list(items.values())

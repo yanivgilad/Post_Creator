@@ -24,38 +24,40 @@ class GitHubSource(SourceAdapter):
         if settings.github_token:
             headers["Authorization"] = f"Bearer {settings.github_token}"
 
-        for query in settings.github_queries:
-            search = encoded_query(f"{query} created:>{since_date}")
-            url = f"https://api.github.com/search/repositories?q={search}&sort=stars&order=desc&per_page=10"
-            try:
-                payload = self._get_json(url, settings, headers=headers)
-            except Exception as exc:
-                logger.warning("[github] query failed %r: %s", query, exc)
-                continue
-            for repo in payload.get("items", []):
-                title = repo.get("full_name") or repo.get("name") or ""
-                repo_url = repo.get("html_url")
-                if not title or not repo_url:
+        for stream, queries in settings.github_queries.items():
+            for query in queries:
+                search = encoded_query(f"{query} created:>{since_date}")
+                url = f"https://api.github.com/search/repositories?q={search}&sort=stars&order=desc&per_page=10"
+                try:
+                    payload = self._get_json(url, settings, headers=headers)
+                except Exception as exc:
+                    logger.warning("[github] query failed %r: %s", query, exc)
                     continue
-                description = repo.get("description") or ""
-                haystack = f"{title} {description}"
-                if not matches_keywords(haystack, settings.keywords):
-                    continue
-                published_at = parse_datetime(repo.get("created_at"))
-                if published_at is None or published_at < since:
-                    continue
-                stars = float(repo.get("stargazers_count") or 0)
-                forks = float(repo.get("forks_count") or 0)
-                item = SourceItem(
-                    source_name=self.name,
-                    external_id=str(repo.get("id") or title),
-                    title=title,
-                    url=repo_url,
-                    summary=truncate_text(description or title),
-                    author=(repo.get("owner") or {}).get("login"),
-                    published_at=published_at,
-                    engagement_score=stars + forks * 0.5,
-                    metadata={"stars": stars, "forks": forks, "query": query},
-                )
-                items[item.dedup_key] = item
+                for repo in payload.get("items", []):
+                    title = repo.get("full_name") or repo.get("name") or ""
+                    repo_url = repo.get("html_url")
+                    if not title or not repo_url:
+                        continue
+                    description = repo.get("description") or ""
+                    haystack = f"{title} {description}"
+                    if not matches_keywords(haystack, settings.keywords):
+                        continue
+                    published_at = parse_datetime(repo.get("created_at"))
+                    if published_at is None or published_at < since:
+                        continue
+                    stars = float(repo.get("stargazers_count") or 0)
+                    forks = float(repo.get("forks_count") or 0)
+                    item = SourceItem(
+                        source_name=self.name,
+                        external_id=str(repo.get("id") or title),
+                        title=title,
+                        url=repo_url,
+                        summary=truncate_text(description or title),
+                        author=(repo.get("owner") or {}).get("login"),
+                        published_at=published_at,
+                        engagement_score=stars + forks * 0.5,
+                        metadata={"stars": stars, "forks": forks, "query": query, "stream": stream},
+                        stream=stream,
+                    )
+                    items[item.dedup_key] = item
         return list(items.values())

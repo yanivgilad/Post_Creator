@@ -9,23 +9,35 @@ from article_writer.article_options import (
     normalize_article_language,
     normalize_article_platform,
 )
+from article_writer.config import STREAMS
 from article_writer.web.routes.api import _background_run
 
 
 router = APIRouter(include_in_schema=False)
 
 
-def _latest_full_run(request: Request) -> dict | None:
+def _normalize_stream(value: str | None) -> str | None:
+    if value is None:
+        return None
+    candidate = value.strip().lower()
+    if not candidate or candidate == "all":
+        return None
+    if candidate in STREAMS:
+        return candidate
+    return None
+
+
+def _latest_full_run(request: Request, stream: str | None = None) -> dict | None:
     latest = request.app.state.store.get_latest_run()
     if latest is None:
         return None
-    return request.app.state.store.get_run(latest["id"])
+    return request.app.state.store.get_run(latest["id"], stream=stream)
 
 
-def _selected_run(request: Request, run_id: int | None) -> dict | None:
+def _selected_run(request: Request, run_id: int | None, stream: str | None = None) -> dict | None:
     if run_id is None:
-        return _latest_full_run(request)
-    return request.app.state.store.get_run(run_id)
+        return _latest_full_run(request, stream=stream)
+    return request.app.state.store.get_run(run_id, stream=stream)
 
 
 def _article_form_context(request: Request, trend: dict, *, error: str | None = None, values: dict | None = None) -> dict:
@@ -78,22 +90,34 @@ def history_view(request: Request):
 
 
 @router.get("/trends")
-def trends_view(request: Request, run_id: int | None = None):
-    run = _selected_run(request, run_id)
+def trends_view(request: Request, run_id: int | None = None, stream: str | None = None):
+    selected_stream = _normalize_stream(stream)
+    run = _selected_run(request, run_id, stream=selected_stream)
+    extra_query = f"run_id={run['id']}" if run else ""
     return request.app.state.templates.TemplateResponse(
         request,
         "trends.html",
         {
             "run": run,
             "is_running": request.app.state.pipeline.is_running,
+            "streams": list(STREAMS),
+            "current_stream": selected_stream,
+            "stream_counts": (run or {}).get("stream_counts", {}),
+            "base_url": "/trends",
+            "extra_query": extra_query,
         },
     )
 
 
 @router.get("/articles")
-def articles_view(request: Request, run_id: int | None = None):
-    run = _selected_run(request, run_id)
-    articles = request.app.state.store.list_articles(run_id=run_id)
+def articles_view(request: Request, run_id: int | None = None, stream: str | None = None):
+    selected_stream = _normalize_stream(stream)
+    run = _selected_run(request, run_id, stream=selected_stream)
+    articles = request.app.state.store.list_articles(run_id=run_id, stream=selected_stream)
+    extra_query_parts = []
+    if run_id is not None:
+        extra_query_parts.append(f"run_id={run_id}")
+    extra_query = "&".join(extra_query_parts)
     return request.app.state.templates.TemplateResponse(
         request,
         "articles.html",
@@ -102,6 +126,11 @@ def articles_view(request: Request, run_id: int | None = None):
             "articles": articles,
             "is_running": request.app.state.pipeline.is_running,
             "message": request.query_params.get("message"),
+            "streams": list(STREAMS),
+            "current_stream": selected_stream,
+            "stream_counts": (run or {}).get("stream_counts", {}),
+            "base_url": "/articles",
+            "extra_query": extra_query,
         },
     )
 
@@ -161,6 +190,7 @@ def create_article(
     language: str = Form(...),
     target_outlet: str = Form(...),
     llm_name: str = Form(...),
+    custom_prompt: str = Form(""),
 ):
     trend = request.app.state.store.get_trend(trend_id)
     if trend is None:
@@ -170,6 +200,7 @@ def create_article(
         "language": language,
         "target_outlet": target_outlet,
         "llm_name": llm_name,
+        "custom_prompt": custom_prompt,
     }
     if llm_name not in request.app.state.settings.supported_article_llm_options:
         return request.app.state.templates.TemplateResponse(
@@ -189,13 +220,22 @@ def create_article(
             status_code=400,
         )
 
-    article = request.app.state.article_generator.generate(
-        trend,
-        language=language,
-        target_outlet=target_outlet,
-        llm_name=llm_name,
-        settings=request.app.state.settings,
-    )
+    try:
+        article = request.app.state.article_generator.generate(
+            trend,
+            language=language,
+            target_outlet=target_outlet,
+            llm_name=llm_name,
+            settings=request.app.state.settings,
+            custom_prompt=custom_prompt,
+        )
+    except Exception as exc:
+        return request.app.state.templates.TemplateResponse(
+            request,
+            "article_form.html",
+            _article_form_context(request, trend, error=f"Article generation failed: {exc}", values=values),
+            status_code=502,
+        )
     article_id = request.app.state.store.create_article(article)
     return RedirectResponse(url=f"/articles/{article_id}?message=article-created", status_code=303)
 

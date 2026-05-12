@@ -297,6 +297,38 @@
         background: rgba(255, 255, 255, 0.55);
       }
 
+      .stream-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 14px 0 18px;
+      }
+
+      .stream-tabs a {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(24, 33, 42, 0.04);
+        font-size: 14px;
+        color: var(--ink);
+      }
+
+      .stream-tabs a.active {
+        background: linear-gradient(135deg, var(--accent), #0f766e);
+        color: #ffffff;
+        border-color: transparent;
+      }
+
+      .stream-tabs .count {
+        margin-left: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .stream-tabs a.active .count {
+        color: rgba(255, 255, 255, 0.85);
+      }
+
       @media (max-width: 720px) {
         .masthead {
           align-items: flex-start;

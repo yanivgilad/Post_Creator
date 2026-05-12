@@ -13,9 +13,12 @@
         {% endif %}
       </div>
       {% if run %}
-        <a class="button secondary" href="/articles?run_id={{ run.id }}">Open Articles</a>
+        <a class="button secondary" href="/articles?run_id={{ run.id }}{% if current_stream %}&stream={{ current_stream }}{% endif %}">Open Articles</a>
       {% endif %}
     </div>
+    {% if run %}
+      {% include "_stream_tabs.html" with context %}
+    {% endif %}
     {% if run and run.trends %}
       <div class="list">
         {% for trend in run.trends %}
@@ -27,6 +30,7 @@
               <span>Score {{ trend.rank_score or trend.score }}</span>
             </div>
             <h3><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
+            <p class="muted" style="margin-top:-4px;">Stream: {{ trend.stream | capitalize }}</p>
             <p>{{ trend.summary }}</p>
             <p class="muted">{{ trend.reason_summary }}</p>
             {% if trend.evidence %}

@@ -64,7 +64,8 @@ class ArxivSource(SourceAdapter):
                     author=child_text(entry, "author", "creator"),
                     published_at=published_at,
                     engagement_score=1.0,
-                    metadata={"feed_url": feed_url},
+                    metadata={"feed_url": feed_url, "stream": settings.arxiv_stream},
+                    stream=settings.arxiv_stream,
                 )
                 items[item.dedup_key] = item
         return list(items.values())

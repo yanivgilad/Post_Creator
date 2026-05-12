@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 
+import pytest
+
 from article_writer.generation.article_generator import ManualArticleGenerator
 
 
@@ -39,20 +41,17 @@ class FakeResponse:
         return False
 
 
-def test_generator_falls_back_without_gemini_key(settings):
+def test_generator_raises_without_gemini_key(settings):
     generator = ManualArticleGenerator()
 
-    article = generator.generate(
-        TREND,
-        language="English",
-        target_outlet="LinkedIn",
-        llm_name="google/gemini-2.5-pro",
-        settings=settings,
-    )
-
-    assert article.llm_name == "google/gemini-2.5-pro"
-    assert article.metadata["mode"] == "local-template"
-    assert "Gemini API key" in article.metadata["fallback_reason"]
+    with pytest.raises(RuntimeError, match="Gemini"):
+        generator.generate(
+            TREND,
+            language="English",
+            target_outlet="LinkedIn",
+            llm_name="google/gemini-2.5-pro",
+            settings=settings,
+        )
 
 
 def test_generator_calls_gemini_directly(settings, monkeypatch):
@@ -85,9 +84,11 @@ def test_generator_calls_gemini_directly(settings, monkeypatch):
         target_outlet="LinkedIn",
         llm_name="google/gemini-2.5-pro",
         settings=replace(settings, gemini_api_key="gemini-test-key"),
+        custom_prompt="Focus on what changed for engineering teams.",
     )
 
     assert article.metadata["mode"] == "gemini"
+    assert article.metadata["custom_prompt"] == "Focus on what changed for engineering teams."
     assert article.title == "Generated Gemini title"
     assert article.body.startswith("# Generated Gemini title")
     assert captured["url"] == (
@@ -102,12 +103,18 @@ def test_generator_calls_gemini_directly(settings, monkeypatch):
     assert user_data["title"] == TREND["title"]
     assert user_data["output_language"] == "English"
     assert user_data["goal"] == "thought_leadership"
+    assert user_data["custom_focus"] == "Focus on what changed for engineering teams."
 
 
 def test_build_prompt_lists_available_information():
     generator = ManualArticleGenerator()
 
-    prompt = generator._build_prompt(TREND, language="Hebrew", target_outlet="Hashnode/Dev.to")
+    prompt = generator._build_prompt(
+        TREND,
+        language="Hebrew",
+        target_outlet="Hashnode/Dev.to",
+        custom_prompt="Focus on how this changes developer workflows.",
+    )
 
     assert "Provided information:" in prompt
     assert "- Trend id: 1" in prompt
@@ -119,13 +126,19 @@ def test_build_prompt_lists_available_information():
     assert "- Rank score: 9.3" in prompt
     assert "- Requested language: Hebrew" in prompt
     assert "- Requested target outlet: Hashnode/Dev.to" in prompt
+    assert "- Custom focus from user: Focus on how this changes developer workflows." in prompt
     assert "- Source metadata: {\"source\": \"test\"}" in prompt
 
 
 def test_build_prompt_reddit_uses_social_payload():
     generator = ManualArticleGenerator()
 
-    prompt = generator._build_prompt(TREND, language="English", target_outlet="Reddit")
+    prompt = generator._build_prompt(
+        TREND,
+        language="English",
+        target_outlet="Reddit",
+        custom_prompt="Focus on benchmark quality and reproducibility.",
+    )
     data = json.loads(prompt)
 
     assert data["title"] == TREND["title"]
@@ -133,6 +146,7 @@ def test_build_prompt_reddit_uses_social_payload():
     assert data["original_url"] == TREND["url"]
     assert data["summary"] == TREND["summary"]
     assert data["output_language"] == "English"
+    assert data["custom_focus"] == "Focus on benchmark quality and reproducibility."
 
 
 def test_build_system_prompt_varies_by_platform(settings):

@@ -96,7 +96,8 @@ class NetlifyBlogSource(SourceAdapter):
                 author=None,
                 published_at=published_at,
                 engagement_score=1.0,
-                metadata={"scraped_from": BLOG_URL},
+                metadata={"scraped_from": BLOG_URL, "stream": settings.netlify_stream},
+                stream=settings.netlify_stream,
             )
             items[item.dedup_key] = item
 

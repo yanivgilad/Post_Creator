@@ -29,6 +29,12 @@
       {% if article.metadata.fallback_reason %}
         <p class="muted">{{ article.metadata.fallback_reason }}</p>
       {% endif %}
+      {% if article.metadata.custom_prompt %}
+        <div class="banner" style="margin-top: 12px; margin-bottom: 12px;">
+          <strong>Custom focus</strong>
+          <p style="margin: 8px 0 0;">{{ article.metadata.custom_prompt }}</p>
+        </div>
+      {% endif %}
       <pre>{{ article.body }}</pre>
     </article>
   </section>

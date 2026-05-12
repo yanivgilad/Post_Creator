@@ -9,11 +9,17 @@ from typing import Any
 
 
 DEFAULT_ARTICLE_LLM_OPTIONS = [
-    "local-template",
     "google/gemini-2.5-pro",
 ]
 
 DEFAULT_SOURCE_CONFIG_FILE = "sources.json"
+
+STREAMS = ("software", "gaming", "hardware")
+DEFAULT_STREAM = "software"
+
+
+def _empty_streams() -> dict[str, list[str]]:
+    return {stream: [] for stream in STREAMS}
 
 
 def _default_source_catalog() -> dict[str, Any]:
@@ -45,38 +51,50 @@ def _default_source_catalog() -> dict[str, Any]:
             "hackernews": {
                 "enabled": True,
                 "weight": 1.0,
-                "queries": ["AI", "LLM", "agent", "open source ai"],
+                "streams": {
+                    DEFAULT_STREAM: {"queries": ["AI", "LLM", "agent", "open source ai"]},
+                },
             },
             "reddit": {
                 "enabled": True,
                 "weight": 0.9,
-                "subreddits": ["MachineLearning", "LocalLLaMA", "artificial"],
+                "streams": {
+                    DEFAULT_STREAM: {"subreddits": ["MachineLearning", "LocalLLaMA", "artificial"]},
+                },
             },
             "github": {
                 "enabled": True,
                 "weight": 1.1,
-                "queries": ["llm", "ai agent", "open source ai"],
+                "streams": {
+                    DEFAULT_STREAM: {"queries": ["llm", "ai agent", "open source ai"]},
+                },
             },
             "product_hunt": {
                 "enabled": False,
                 "weight": 1.0,
+                "stream": DEFAULT_STREAM,
             },
             "rss": {
                 "enabled": True,
                 "weight": 0.8,
-                "feeds": [
-                    "https://openai.com/news/rss.xml",
-                    "https://huggingface.co/blog/feed.xml",
-                    "https://blogs.microsoft.com/feed/",
-                    "https://www.apple.com/newsroom/rss-feed.rss",
-                    "https://simonwillison.net/atom/everything/",
-                    "https://lastweekin.ai/feed",
-                    "https://ir.tesla.com/rss.xml",
-                ],
+                "streams": {
+                    DEFAULT_STREAM: {
+                        "feeds": [
+                            "https://openai.com/news/rss.xml",
+                            "https://huggingface.co/blog/feed.xml",
+                            "https://blogs.microsoft.com/feed/",
+                            "https://www.apple.com/newsroom/rss-feed.rss",
+                            "https://simonwillison.net/atom/everything/",
+                            "https://lastweekin.ai/feed",
+                            "https://ir.tesla.com/rss.xml",
+                        ],
+                    },
+                },
             },
             "arxiv": {
                 "enabled": True,
                 "weight": 1.2,
+                "stream": DEFAULT_STREAM,
                 "feeds": [
                     "https://rss.arxiv.org/rss/cs.AI",
                     "https://rss.arxiv.org/rss/cs.LG",
@@ -85,26 +103,32 @@ def _default_source_catalog() -> dict[str, Any]:
             "deepmind": {
                 "enabled": True,
                 "weight": 0.9,
+                "stream": DEFAULT_STREAM,
                 "feeds": ["https://deepmind.google/blog/rss"],
             },
             "lobsters": {
                 "enabled": True,
                 "weight": 0.85,
-                "endpoints": [
-                    "https://lobste.rs/t/ai.json",
-                    "https://lobste.rs/t/ml.json",
-                ],
+                "streams": {
+                    DEFAULT_STREAM: {
+                        "endpoints": [
+                            "https://lobste.rs/t/ai.json",
+                            "https://lobste.rs/t/ml.json",
+                        ],
+                    },
+                },
             },
             "netlify": {
                 "enabled": True,
                 "weight": 0.8,
+                "stream": DEFAULT_STREAM,
             },
         },
     }
 
 
 def _is_supported_article_llm_option(llm_name: str) -> bool:
-    return llm_name == "local-template" or llm_name.startswith("google/")
+    return llm_name.startswith("google/")
 
 
 def filter_supported_article_llm_options(llm_options: list[str]) -> list[str]:
@@ -165,6 +189,34 @@ def _as_json_list(raw: Any, default: list[str]) -> list[str]:
     return values or list(default)
 
 
+def _normalize_stream(value: Any) -> str:
+    if isinstance(value, str):
+        candidate = value.strip().lower()
+        if candidate in STREAMS:
+            return candidate
+    return DEFAULT_STREAM
+
+
+def _streams_dict(section: dict[str, Any], list_key: str) -> dict[str, list[str]]:
+    """Return a {stream: [items]} mapping for a multi-target source.
+
+    Accepts both new `streams: {stream: {list_key: [...]}}` shape and a legacy
+    flat `list_key: [...]` (which is bucketed under DEFAULT_STREAM).
+    """
+    out = _empty_streams()
+    streams_block = section.get("streams")
+    if isinstance(streams_block, dict):
+        for stream_name, stream_section in streams_block.items():
+            stream = _normalize_stream(stream_name)
+            if isinstance(stream_section, dict):
+                out[stream] = _as_json_list(stream_section.get(list_key), [])
+        return out
+    legacy = section.get(list_key)
+    if legacy is not None:
+        out[DEFAULT_STREAM] = _as_json_list(legacy, [])
+    return out
+
+
 def _resolve_source_config_path(raw: str | None) -> Path:
     config_path = Path(raw or DEFAULT_SOURCE_CONFIG_FILE)
     if not config_path.is_absolute():
@@ -196,6 +248,13 @@ def _load_source_catalog(path: Path) -> dict[str, Any]:
         if not isinstance(section, dict):
             continue
         merged_section = dict(default_section)
+        # If the user supplies any list-shaped config (streams or any of the
+        # legacy flat keys), drop the defaults for those fields so user intent
+        # wins cleanly without inheriting the default's other shape.
+        list_keys = {"streams", "queries", "subreddits", "feeds", "endpoints"}
+        if any(key in section for key in list_keys):
+            for key in list_keys:
+                merged_section.pop(key, None)
         merged_section.update(section)
         catalog["sources"][source_name] = merged_section
     return catalog
@@ -222,13 +281,17 @@ class Settings:
     enable_deepmind: bool
     enable_lobsters: bool
     enable_netlify: bool
-    hackernews_queries: list[str]
-    rss_feeds: list[str]
-    github_queries: list[str]
+    hackernews_queries: dict[str, list[str]]
+    rss_feeds: dict[str, list[str]]
+    github_queries: dict[str, list[str]]
+    reddit_subreddits: dict[str, list[str]]
+    lobsters_endpoints: dict[str, list[str]]
     arxiv_feeds: list[str]
+    arxiv_stream: str
     deepmind_feeds: list[str]
-    lobsters_endpoints: list[str]
-    reddit_subreddits: list[str]
+    deepmind_stream: str
+    netlify_stream: str
+    product_hunt_stream: str
     keywords: list[str]
     source_weights: dict[str, float]
     article_llm_options: list[str]
@@ -281,13 +344,17 @@ def get_settings() -> Settings:
         enable_deepmind=_as_json_bool(source_sections["deepmind"].get("enabled"), True),
         enable_lobsters=_as_json_bool(source_sections["lobsters"].get("enabled"), True),
         enable_netlify=_as_json_bool(source_sections["netlify"].get("enabled"), True),
-        hackernews_queries=_as_json_list(source_sections["hackernews"].get("queries"), []),
-        rss_feeds=_as_json_list(source_sections["rss"].get("feeds"), []),
-        github_queries=_as_json_list(source_sections["github"].get("queries"), []),
+        hackernews_queries=_streams_dict(source_sections["hackernews"], "queries"),
+        rss_feeds=_streams_dict(source_sections["rss"], "feeds"),
+        github_queries=_streams_dict(source_sections["github"], "queries"),
+        reddit_subreddits=_streams_dict(source_sections["reddit"], "subreddits"),
+        lobsters_endpoints=_streams_dict(source_sections["lobsters"], "endpoints"),
         arxiv_feeds=_as_json_list(source_sections["arxiv"].get("feeds"), []),
+        arxiv_stream=_normalize_stream(source_sections["arxiv"].get("stream")),
         deepmind_feeds=_as_json_list(source_sections["deepmind"].get("feeds"), []),
-        lobsters_endpoints=_as_json_list(source_sections["lobsters"].get("endpoints"), []),
-        reddit_subreddits=_as_json_list(source_sections["reddit"].get("subreddits"), []),
+        deepmind_stream=_normalize_stream(source_sections["deepmind"].get("stream")),
+        netlify_stream=_normalize_stream(source_sections["netlify"].get("stream")),
+        product_hunt_stream=_normalize_stream(source_sections["product_hunt"].get("stream")),
         keywords=_as_json_list(source_catalog.get("keywords"), []),
         source_weights={
             source_name: _as_json_float(section.get("weight"), 1.0)

@@ -31,7 +31,7 @@
       <input type="hidden" name="trend_id" value="{{ trend.id }}" />
       <label>
         Language
-        {% set language_choices = language_options|default(['English', 'Hebrew'], true) %}
+        {% set language_choices = language_options|default(['Hebrew', 'English'], true) %}
         {% set selected_language = values.language or (default_language|default(language_choices[0], true)) %}
         <select name="language" required>
           {% for language_option in language_choices %}
@@ -53,9 +53,13 @@
         LLM
         <select name="llm_name" required>
           {% for llm in llm_options %}
-            <option value="{{ llm }}" {% if (values.llm_name or 'local-template') == llm %}selected{% endif %}>{{ llm }}</option>
+            <option value="{{ llm }}" {% if (values.llm_name or 'google/gemini-2.5-pro') == llm %}selected{% endif %}>{{ llm }}</option>
           {% endfor %}
         </select>
+      </label>
+      <label>
+        Custom Focus For The Post
+        <textarea name="custom_prompt" rows="5" placeholder="Example: Focus on practical adoption risks for engineering teams and avoid hype.">{{ values.custom_prompt or '' }}</textarea>
       </label>
       <div class="actions">
         <button type="submit">Create Article</button>

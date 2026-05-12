@@ -20,6 +20,7 @@ class ArticleCreatePayload(BaseModel):
     language: str
     target_outlet: str
     llm_name: str
+    custom_prompt: str | None = None
 
 
 def _background_run(pipeline, app_state=None) -> None:
@@ -133,13 +134,17 @@ def create_article(request: Request, payload: ArticleCreatePayload):
         target_outlet = normalize_article_platform(payload.target_outlet)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    article = request.app.state.article_generator.generate(
-        trend,
-        language=language,
-        target_outlet=target_outlet,
-        llm_name=payload.llm_name,
-        settings=request.app.state.settings,
-    )
+    try:
+        article = request.app.state.article_generator.generate(
+            trend,
+            language=language,
+            target_outlet=target_outlet,
+            llm_name=payload.llm_name,
+            settings=request.app.state.settings,
+            custom_prompt=payload.custom_prompt,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Article generation failed: {exc}") from exc
     article_id = request.app.state.store.create_article(article)
     return request.app.state.store.get_article(article_id)
 

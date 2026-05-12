@@ -19,44 +19,46 @@ class LobstersSource(SourceAdapter):
 
     def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
         items: dict[str, SourceItem] = {}
-        for endpoint in settings.lobsters_endpoints:
-            try:
-                stories = self._get_json(endpoint, settings)
-            except Exception as exc:
-                logger.warning("[lobsters] endpoint failed %s: %s", endpoint, exc)
-                continue
-            if not isinstance(stories, list):
-                logger.warning("[lobsters] endpoint returned unexpected format %s", endpoint)
-                continue
-            for story in stories:
-                if not isinstance(story, dict):
+        for stream, endpoints in settings.lobsters_endpoints.items():
+            for endpoint in endpoints:
+                try:
+                    stories = self._get_json(endpoint, settings)
+                except Exception as exc:
+                    logger.warning("[lobsters] endpoint failed %s: %s", endpoint, exc)
                     continue
-                title = story.get("title") or ""
-                url = story.get("url") or story.get("short_id_url") or ""
-                if not title or not url:
+                if not isinstance(stories, list):
+                    logger.warning("[lobsters] endpoint returned unexpected format %s", endpoint)
                     continue
-                description = story.get("description") or ""
-                if not matches_keywords(f"{title} {description}", settings.keywords):
-                    continue
-                published_at = parse_datetime(story.get("created_at"))
-                if published_at is None or published_at < since:
-                    continue
-                score = float(story.get("score") or 0)
-                comment_count = float(story.get("comment_count") or 0)
-                submitter_user = story.get("submitter_user")
-                author = submitter_user or None
-                if isinstance(submitter_user, dict):
-                    author = submitter_user.get("username")
-                item = SourceItem(
-                    source_name=self.name,
-                    external_id=story.get("short_id") or url,
-                    title=title,
-                    url=url,
-                    summary=truncate_text(description or title),
-                    author=author,
-                    published_at=published_at,
-                    engagement_score=score + comment_count * 0.6,
-                    metadata={"score": score, "comments": comment_count, "endpoint": endpoint},
-                )
-                items[item.dedup_key] = item
+                for story in stories:
+                    if not isinstance(story, dict):
+                        continue
+                    title = story.get("title") or ""
+                    url = story.get("url") or story.get("short_id_url") or ""
+                    if not title or not url:
+                        continue
+                    description = story.get("description") or ""
+                    if not matches_keywords(f"{title} {description}", settings.keywords):
+                        continue
+                    published_at = parse_datetime(story.get("created_at"))
+                    if published_at is None or published_at < since:
+                        continue
+                    score = float(story.get("score") or 0)
+                    comment_count = float(story.get("comment_count") or 0)
+                    submitter_user = story.get("submitter_user")
+                    author = submitter_user or None
+                    if isinstance(submitter_user, dict):
+                        author = submitter_user.get("username")
+                    item = SourceItem(
+                        source_name=self.name,
+                        external_id=story.get("short_id") or url,
+                        title=title,
+                        url=url,
+                        summary=truncate_text(description or title),
+                        author=author,
+                        published_at=published_at,
+                        engagement_score=score + comment_count * 0.6,
+                        metadata={"score": score, "comments": comment_count, "endpoint": endpoint, "stream": stream},
+                        stream=stream,
+                    )
+                    items[item.dedup_key] = item
         return list(items.values())

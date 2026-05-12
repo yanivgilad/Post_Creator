@@ -213,6 +213,12 @@ PLATFORM_SYSTEM_PROMPTS = {
 
 
 class ManualArticleGenerator:
+    def _normalize_custom_prompt(self, custom_prompt: str | None) -> str | None:
+        if custom_prompt is None:
+            return None
+        normalized = custom_prompt.strip()
+        return normalized or None
+
     def _load_prompt_file(self, explicit_path: str | None, default_filename: str, fallback: str) -> str:
         candidates = [
             Path(explicit_path) if explicit_path else None,
@@ -225,11 +231,23 @@ class ManualArticleGenerator:
 
     def _build_system_prompt(self, target_outlet: str, settings: Settings) -> str:
         if target_outlet == "Twitter/X":
-            return self._load_prompt_file(settings.twitter_prompt_file, "twitter_system_prompt.txt", TWITTER_SYSTEM_PROMPT)
+            prompt = self._load_prompt_file(settings.twitter_prompt_file, "twitter_system_prompt.txt", TWITTER_SYSTEM_PROMPT)
+            return (
+                f"{prompt}\n\n"
+                "If the user provides a custom focus or angle, prioritize it while staying factual and grounded in the provided information."
+            )
         if target_outlet == "LinkedIn":
-            return self._load_prompt_file(settings.linkedin_prompt_file, "linkedin_system_prompt.txt", "")
+            prompt = self._load_prompt_file(settings.linkedin_prompt_file, "linkedin_system_prompt.txt", "")
+            return (
+                f"{prompt}\n\n"
+                "If the user provides a custom focus or angle, prioritize it while staying factual and grounded in the provided information."
+            )
         if target_outlet == "Reddit":
-            return self._load_prompt_file(settings.reddit_prompt_file, "reddit_system_prompt.txt", REDDIT_SYSTEM_PROMPT)
+            prompt = self._load_prompt_file(settings.reddit_prompt_file, "reddit_system_prompt.txt", REDDIT_SYSTEM_PROMPT)
+            return (
+                f"{prompt}\n\n"
+                "If the user provides a custom focus or angle, prioritize it while staying factual and grounded in the provided information."
+            )
         platform_guidance = PLATFORM_SYSTEM_PROMPTS.get(
             target_outlet,
             "Match the tone, structure, and depth to the requested outlet while staying factual and readable.",
@@ -250,46 +268,29 @@ class ManualArticleGenerator:
         target_outlet: str,
         llm_name: str,
         settings: Settings,
+        custom_prompt: str | None = None,
     ) -> ArticleArtifact:
-        if llm_name == "local-template":
-            article = self._generate_local_template(trend, language=language, target_outlet=target_outlet)
-            article.llm_name = llm_name
-            article.metadata.update(
-                {
-                    "mode": "local-template",
-                    "requested_llm": llm_name,
-                }
-            )
-            return article
-
-        try:
-            title, body, mode = self._generate_with_provider(
-                trend,
-                language=language,
-                target_outlet=target_outlet,
-                llm_name=llm_name,
-                settings=settings,
-            )
-            return ArticleArtifact(
-                trend_id=int(trend["id"]),
-                language=language,
-                target_outlet=target_outlet,
-                llm_name=llm_name,
-                title=title,
-                body=body,
-                metadata={"mode": mode},
-            )
-        except Exception as exc:
-            fallback = self._generate_local_template(trend, language=language, target_outlet=target_outlet)
-            fallback.metadata.update(
-                {
-                    "mode": "local-template",
-                    "fallback_reason": f"Fell back to local template after direct LLM request failed: {exc}",
-                    "requested_llm": llm_name,
-                }
-            )
-            fallback.llm_name = llm_name
-            return fallback
+        custom_prompt = self._normalize_custom_prompt(custom_prompt)
+        title, body, mode = self._generate_with_provider(
+            trend,
+            language=language,
+            target_outlet=target_outlet,
+            llm_name=llm_name,
+            settings=settings,
+            custom_prompt=custom_prompt,
+        )
+        metadata = {"mode": mode}
+        if custom_prompt:
+            metadata["custom_prompt"] = custom_prompt
+        return ArticleArtifact(
+            trend_id=int(trend["id"]),
+            language=language,
+            target_outlet=target_outlet,
+            llm_name=llm_name,
+            title=title,
+            body=body,
+            metadata=metadata,
+        )
 
     def _generate_with_provider(
         self,
@@ -299,6 +300,7 @@ class ManualArticleGenerator:
         target_outlet: str,
         llm_name: str,
         settings: Settings,
+        custom_prompt: str | None,
     ) -> tuple[str, str, str]:
         provider_name, model_name = self._parse_model_name(llm_name)
         if provider_name == "google":
@@ -309,6 +311,7 @@ class ManualArticleGenerator:
                     target_outlet=target_outlet,
                     model_name=model_name,
                     settings=settings,
+                    custom_prompt=custom_prompt,
                 )
                 return title, body, "gemini"
             except Exception as exc:
@@ -325,76 +328,6 @@ class ManualArticleGenerator:
             )
         return provider_name.strip().lower(), model_name.strip()
 
-    def _generate_local_template(
-        self,
-        trend: dict[str, Any],
-        *,
-        language: str,
-        target_outlet: str,
-    ) -> ArticleArtifact:
-        trend_title = str(trend["title"])
-        source_name = str(trend["source_name"])
-        summary = str(trend.get("summary") or trend.get("reason_summary") or trend_title)
-        url = str(trend["url"])
-        requested_language = language.strip() or "English"
-        target = target_outlet.strip() or "LinkedIn"
-
-        title = f"{trend_title}: a {target} angle worth covering"
-        lines = [
-            f"# {title}",
-            "",
-            f"Source: {source_name}",
-            f"Original link: {url}",
-            "",
-            f"This version is formatted for {target}.",
-            "",
-            "## What happened",
-            summary,
-            "",
-            "## Why this matters now",
-            (
-                f"The item stood out because it was ranked highly in the latest trend scan. "
-                f"That usually means it combines freshness, visible engagement, and a strong AI signal."
-            ),
-            "",
-            f"## Best angle for {target}",
-            (
-                f"Position the piece around the practical implication, then shape the framing for {target}. "
-                f"Instead of restating the announcement, explain what changed, why that platform's readers will care, and what action they can take next."
-            ),
-            "",
-            "## Suggested structure",
-            "1. Start with the concrete news event.",
-            "2. Explain the underlying trend it points to.",
-            "3. Add one opinionated take on why it matters on that platform.",
-            "4. End with a practical takeaway or question that fits the platform.",
-            "",
-            "## Closing take",
-            (
-                f"If you write about this topic, focus on what makes it useful or strategically important for a {target} audience instead of just describing the release."
-            ),
-        ]
-
-        metadata: dict[str, Any] = {"mode": "local-template"}
-        if requested_language.lower() != "english":
-            lines.extend(
-                [
-                    "",
-                    f"Note: you requested {requested_language}. The current local fallback writes in English. "
-                    "Once a direct LLM provider is configured, this same workflow can generate the full article in the requested language.",
-                ]
-            )
-
-        return ArticleArtifact(
-            trend_id=int(trend["id"]),
-            language=requested_language,
-            target_outlet=target,
-            llm_name="local-template",
-            title=title,
-            body="\n".join(lines),
-            metadata=metadata,
-        )
-
     def _generate_with_gemini(
         self,
         trend: dict[str, Any],
@@ -403,11 +336,17 @@ class ManualArticleGenerator:
         target_outlet: str,
         model_name: str,
         settings: Settings,
+        custom_prompt: str | None,
     ) -> tuple[str, str]:
         if not settings.gemini_api_key:
             raise RuntimeError("No Gemini API key is configured.")
 
-        prompt = self._build_prompt(trend, language=language, target_outlet=target_outlet)
+        prompt = self._build_prompt(
+            trend,
+            language=language,
+            target_outlet=target_outlet,
+            custom_prompt=custom_prompt,
+        )
         payload = {
             "system_instruction": {
                 "parts": [{"text": self._build_system_prompt(target_outlet, settings)}],
@@ -455,7 +394,14 @@ class ManualArticleGenerator:
         title = first_line.lstrip("# ").strip() if first_line.startswith("#") else str(trend["title"])
         return title, content
 
-    def _build_social_payload(self, trend: dict[str, Any], *, language: str, extra: dict | None = None) -> str:
+    def _build_social_payload(
+        self,
+        trend: dict[str, Any],
+        *,
+        language: str,
+        extra: dict | None = None,
+        custom_prompt: str | None = None,
+    ) -> str:
         payload: dict = {
             "title": str(trend["title"]),
             "source_name": str(trend["source_name"]),
@@ -464,17 +410,32 @@ class ManualArticleGenerator:
             "summary": str(trend.get("summary") or trend.get("reason_summary") or ""),
             "output_language": language,
         }
+        if custom_prompt:
+            payload["custom_focus"] = custom_prompt
         if extra:
             payload.update(extra)
         return json.dumps(payload, ensure_ascii=False, indent=2)
 
-    def _build_prompt(self, trend: dict[str, Any], *, language: str, target_outlet: str) -> str:
+    def _build_prompt(
+        self,
+        trend: dict[str, Any],
+        *,
+        language: str,
+        target_outlet: str,
+        custom_prompt: str | None = None,
+    ) -> str:
+        custom_prompt = self._normalize_custom_prompt(custom_prompt)
         if target_outlet == "Twitter/X":
-            return self._build_social_payload(trend, language=language)
+            return self._build_social_payload(trend, language=language, custom_prompt=custom_prompt)
         if target_outlet == "LinkedIn":
-            return self._build_social_payload(trend, language=language, extra={"goal": "thought_leadership"})
+            return self._build_social_payload(
+                trend,
+                language=language,
+                extra={"goal": "thought_leadership"},
+                custom_prompt=custom_prompt,
+            )
         if target_outlet == "Reddit":
-            return self._build_social_payload(trend, language=language)
+            return self._build_social_payload(trend, language=language, custom_prompt=custom_prompt)
         evidence = trend.get("evidence") or []
         evidence_lines = "\n".join(f"- {item}" for item in evidence)
         supporting_urls = trend.get("supporting_urls") or []
@@ -504,6 +465,7 @@ class ManualArticleGenerator:
             f"- Rank score: {rank_score if rank_score is not None else 'Unknown'}\n"
             f"- Requested language: {language}\n"
             f"- Requested target outlet: {target_outlet}\n"
+            f"- Custom focus from user: {custom_prompt or 'None'}\n"
             f"- Evidence:\n{evidence_lines or '- None'}\n"
             f"- Supporting URLs:\n{supporting_url_lines or '- None'}\n"
             f"- Source metadata: {metadata_block}\n\n"
@@ -511,6 +473,7 @@ class ManualArticleGenerator:
             "- Start with a strong title.\n"
             "- Write in a clear editorial style, not as bullet notes.\n"
             "- Tailor the tone, structure, and length to the target platform.\n"
+            "- Prioritize the user's requested focus when it fits the provided facts.\n"
             "- Explain what happened, why it matters, and what readers should watch next.\n"
             "- Keep it factual and grounded in the provided information.\n"
             "- End with a concise closing takeaway."

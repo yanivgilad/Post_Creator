@@ -27,6 +27,7 @@ class SourceItem:
     published_at: datetime
     engagement_score: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
+    stream: str = "software"
 
     @property
     def dedup_key(self) -> str:

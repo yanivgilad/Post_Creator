@@ -36,18 +36,18 @@ def test_source_catalog_file_controls_source_settings(monkeypatch, tmp_path):
         assert settings.enable_hackernews is False
         assert settings.enable_rss is True
         assert settings.source_config_file == str(source_catalog)
-        assert settings.hackernews_queries == ["AI", "LLM", "agent", "open source ai"]
-        assert settings.github_queries == ["llm", "ai agent", "open source ai"]
+        assert settings.hackernews_queries["software"] == ["AI", "LLM", "agent", "open source ai"]
+        assert settings.github_queries["software"] == ["llm", "ai agent", "open source ai"]
         assert settings.arxiv_feeds == [
             "https://rss.arxiv.org/rss/cs.AI",
             "https://rss.arxiv.org/rss/cs.LG",
         ]
-        assert settings.rss_feeds == [
+        assert settings.rss_feeds["software"] == [
             "https://blogs.microsoft.com/feed/",
             "https://www.apple.com/newsroom/rss-feed.rss",
             "https://ir.tesla.com/rss.xml",
         ]
-        assert settings.reddit_subreddits == ["MachineLearning", "singularity"]
+        assert settings.reddit_subreddits["software"] == ["MachineLearning", "singularity"]
         assert settings.source_weights["hackernews"] == 1.4
         assert settings.source_weights["rss"] == 1.5
         assert settings.source_weights["deepmind"] == 0.9
