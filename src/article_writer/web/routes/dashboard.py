@@ -90,23 +90,19 @@ def history_view(request: Request):
 
 
 @router.get("/trends")
-def trends_view(request: Request, run_id: int | None = None, stream: str | None = None):
+def trends_redirect(request: Request, run_id: int | None = None, stream: str | None = None):
+    """Legacy alias — every run lives on /runs/{id}."""
+    target_run_id = run_id
+    if target_run_id is None:
+        latest = request.app.state.store.get_latest_run()
+        if latest is None:
+            return RedirectResponse(url="/history", status_code=307)
+        target_run_id = latest["id"]
+    target = f"/runs/{target_run_id}"
     selected_stream = _normalize_stream(stream)
-    run = _selected_run(request, run_id, stream=selected_stream)
-    extra_query = f"run_id={run['id']}" if run else ""
-    return request.app.state.templates.TemplateResponse(
-        request,
-        "trends.html",
-        {
-            "run": run,
-            "is_running": request.app.state.pipeline.is_running,
-            "streams": list(STREAMS),
-            "current_stream": selected_stream,
-            "stream_counts": (run or {}).get("stream_counts", {}),
-            "base_url": "/trends",
-            "extra_query": extra_query,
-        },
-    )
+    if selected_stream:
+        target = f"{target}?stream={selected_stream}"
+    return RedirectResponse(url=target, status_code=307)
 
 
 @router.get("/articles")
@@ -149,8 +145,9 @@ def run_live_view(request: Request):
 
 
 @router.get("/runs/{run_id}")
-def run_detail_view(request: Request, run_id: int):
-    run = request.app.state.store.get_run(run_id)
+def run_detail_view(request: Request, run_id: int, stream: str | None = None):
+    selected_stream = _normalize_stream(stream)
+    run = request.app.state.store.get_run(run_id, stream=selected_stream)
     if run is None:
         raise HTTPException(status_code=404, detail="Run not found")
     return request.app.state.templates.TemplateResponse(
@@ -159,6 +156,11 @@ def run_detail_view(request: Request, run_id: int):
         {
             "run": run,
             "is_running": request.app.state.pipeline.is_running,
+            "streams": list(STREAMS),
+            "current_stream": selected_stream,
+            "stream_counts": run.get("stream_counts", {}),
+            "base_url": f"/runs/{run_id}",
+            "extra_query": "",
         },
     )
 

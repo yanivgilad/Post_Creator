@@ -100,7 +100,7 @@ class _MultiStreamFakeSource(SourceAdapter):
         ]
 
 
-def test_trends_route_filters_by_stream(settings):
+def test_run_detail_filters_by_stream(settings):
     app = create_app(settings, start_scheduler=False)
 
     with TestClient(app) as client:
@@ -108,14 +108,15 @@ def test_trends_route_filters_by_stream(settings):
         pipeline.sources = [_MultiStreamFakeSource()]
         run_id = pipeline.run("test-streams")
 
-        all_view = client.get(f"/trends?run_id={run_id}")
-        gaming_view = client.get(f"/trends?run_id={run_id}&stream=gaming")
-        hardware_view = client.get(f"/trends?run_id={run_id}&stream=hardware")
+        all_view = client.get(f"/runs/{run_id}")
+        gaming_view = client.get(f"/runs/{run_id}?stream=gaming")
+        hardware_view = client.get(f"/runs/{run_id}?stream=hardware")
 
         assert all_view.status_code == 200
         assert "Xbox handheld leaks" in all_view.text
         assert "NVIDIA Blackwell shipping" in all_view.text
         assert "AI agent breakthrough" in all_view.text
+        assert 'class="stream-tabs"' in all_view.text
 
         assert gaming_view.status_code == 200
         assert "Xbox handheld leaks" in gaming_view.text
@@ -125,6 +126,20 @@ def test_trends_route_filters_by_stream(settings):
         assert hardware_view.status_code == 200
         assert "NVIDIA Blackwell shipping" in hardware_view.text
         assert "Xbox handheld leaks" not in hardware_view.text
+
+
+def test_trends_legacy_route_redirects_to_run(settings):
+    app = create_app(settings, start_scheduler=False)
+
+    with TestClient(app) as client:
+        pipeline: DailyPipeline = client.app.state.pipeline
+        pipeline.sources = [_MultiStreamFakeSource()]
+        run_id = pipeline.run("test-streams")
+
+        redirect = client.get(f"/trends?run_id={run_id}&stream=hardware", follow_redirects=False)
+
+        assert redirect.status_code == 307
+        assert redirect.headers["location"] == f"/runs/{run_id}?stream=hardware"
 
 
 def test_web_routes_render_and_api_returns_latest_run(settings, monkeypatch):
@@ -145,7 +160,7 @@ def test_web_routes_render_and_api_returns_latest_run(settings, monkeypatch):
         dashboard = client.get("/")
         latest = client.get("/api/runs/latest")
         config = client.get("/api/config")
-        trends_page = client.get(f"/trends?run_id={run_id}")
+        trends_page = client.get(f"/runs/{run_id}")
         article_form = client.get(f"/articles/new?trend_id={trend_id}")
         article_create = client.post(
             "/articles",

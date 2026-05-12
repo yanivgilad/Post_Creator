@@ -10,7 +10,7 @@
         <p class="muted">{% if run %}Run #{{ run.id }}{% else %}All manually created articles{% endif %}</p>
       </div>
       {% if run %}
-        <a class="button secondary" href="/trends?run_id={{ run.id }}{% if current_stream %}&stream={{ current_stream }}{% endif %}">Back To Trends</a>
+        <a class="button secondary" href="/runs/{{ run.id }}{% if current_stream %}?stream={{ current_stream }}{% endif %}">Back To Run</a>
       {% endif %}
     </div>
 

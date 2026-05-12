@@ -60,7 +60,7 @@
                 <span>{{ run.status }}</span>
                 <span>{{ run.created_at }}</span>
               </div>
-              <a class="button ghost" href="/trends?run_id={{ run.id }}">Open Run</a>
+              <a class="button ghost" href="/runs/{{ run.id }}">Open Run</a>
             </div>
           {% endfor %}
         </div>
@@ -74,7 +74,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
       <h2>Latest Top 10 Recommendations</h2>
       {% if latest_run %}
-        <a class="button secondary" href="/trends?run_id={{ latest_run.id }}">View All Trends</a>
+        <a class="button secondary" href="/runs/{{ latest_run.id }}">View All Trends</a>
       {% endif %}
     </div>
     {% if latest_run and latest_run.trends %}

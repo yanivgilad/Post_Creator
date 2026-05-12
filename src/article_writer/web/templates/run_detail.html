@@ -56,7 +56,7 @@
       <div class="actions" style="margin-top:0;">
         <a class="button ghost" href="/history">All Runs</a>
         {% if run.trends %}
-          <a class="button secondary" href="/articles?run_id={{ run.id }}">Articles</a>
+          <a class="button secondary" href="/articles?run_id={{ run.id }}{% if current_stream %}&stream={{ current_stream }}{% endif %}">Articles</a>
         {% endif %}
       </div>
     </div>
@@ -106,6 +106,7 @@
         <span class="muted" style="font-size:14px;font-weight:400;margin-left:8px;">{{ run.all_scored_items | length }} scored</span>
       {% endif %}
     </h3>
+    {% include "_stream_tabs.html" with context %}
     {% set items = run.all_scored_items if run.all_scored_items else run.trends %}
     {% if items %}
       {% set sources = items | map(attribute='source_name') | unique | list | sort %}

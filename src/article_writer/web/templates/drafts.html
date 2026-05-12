@@ -10,7 +10,7 @@
         <p class="muted">{% if run %}Run #{{ run.id }}{% else %}No run selected{% endif %}</p>
       </div>
       {% if run %}
-        <a class="button secondary" href="/trends?run_id={{ run.id }}">Back To Trends</a>
+        <a class="button secondary" href="/runs/{{ run.id }}">Back To Run</a>
       {% endif %}
     </div>
     {% if run and run.drafts %}
