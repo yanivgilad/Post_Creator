@@ -86,21 +86,25 @@ Run flow: `create_run` (running) → only log activity during the run → `compl
 
 ## Gaps vs My Requirements (Yaniv)
 
-**Personal persona**
-- `prompts/linkedin_system_prompt.txt` is written as a **ghostwriter for "Amit Raz, rzailabs.com"** — not for me. Needs a full replacement in Stage 1. The `TWITTER_SYSTEM_PROMPT` and `REDDIT_SYSTEM_PROMPT` constants in `article_generator.py` also point at Amit (in code, not in a file); if I only use LinkedIn this is fine, but worth knowing.
-- The default language in the UI is `language_options[0]`, which is `Hebrew` per `article_options.ARTICLE_LANGUAGE_OPTIONS` (good), but should be verified after a real run.
+**Personal persona** — ✅ **closed in Stage 1.**
+- All three personas (`LinkedIn`, `Twitter/X`, `Reddit`) are now Yaniv Gilad: senior tech leader / AI architect, CTO-positioning voice. LinkedIn defaults to Hebrew; Twitter and Reddit default to English (community language). Reddit explicitly forbids any mention of "Yaniv" or "Kaleidoo" per the anti-brand rule.
+- **Where personas live (canonical edit location): `prompts/linkedin_system_prompt.txt`, `prompts/twitter_system_prompt.txt`, `prompts/reddit_system_prompt.txt`.** At runtime, `_load_prompt_file` in `article_generator.py` reads each file first and only falls back to the `*_SYSTEM_PROMPT` constant in code if the file is missing. The constants carry a `# Fallback only` comment for this reason. **To edit a persona in the future, edit the `.txt` file, not the constant.** Optional env overrides: `ARTICLE_WRITER_{LINKEDIN,TWITTER,REDDIT}_PROMPT_FILE`.
+- Default UI language is `language_options[0]` = `Hebrew`, which matches the LinkedIn default. Twitter and Reddit prompts honor whatever language the form passes (default English).
 
-**Narrower sources for my domains**
-- Today's `sources.json` covers three streams: `software` + `gaming` + `hardware`. For AI/LLM/RAG only, gaming and hardware are noise. Cleanup belongs in Stage 1.
-- `arxiv.enabled = false` in the current `sources.json` (even though the default in `config.py` is `true`). The fork explicitly disables it. Flip back to `true` in Stage 1.
-- The `software` subreddit list currently includes `claudeAI, cursor, tech, algotrading, quant, quantfinance, algorithmictrading` — some relevant, some not. Needs a personal pick.
-- No Twitter/X source (it existed in older config but is not in `ALL_SOURCE_ADAPTERS`). No need to add now.
+**Narrower sources for my domains** — ✅ **closed in Stage 1.**
+- `sources.json` now populates only the `software` stream. The `gaming` and `hardware` blocks were removed from every source (the code's `STREAMS = ("software","gaming","hardware")` tuple is untouched per Stage 1's "JSON only" rule; the unused streams simply resolve to empty lists at runtime).
+- `arxiv.enabled` flipped `false` → `true`. Feeds: `cs.AI`, `cs.LG`.
+- Reddit subreddits trimmed from ~40 (across three streams) to 5: `MachineLearning, LocalLLaMA, artificial, claudeAI, cursor`.
+- RSS software feeds trimmed from 24 to 20 (removed three quant/finance feeds and the Tesla IR feed).
+- Keywords list rewritten end-to-end: 85 substring-friendly phrases anchored to LLM/RAG/agents discussions, comparisons, and provocative framings (e.g. "RAG is dead", "long context kills RAG", "you don't need RAG"). No "X just launched" style.
+- Out of Stage-1 scope: the generic User-Agent on Reddit is unchanged. With 5 subreddits the 429 risk is lower but not zero. Tracked for a future stage.
 
-**OpenAI/Claude provider**
+**OpenAI/Claude provider** — ❌ **still open (Stage 2).**
 - In `article_generator.py`: `_generate_with_provider` only supports `provider_name == "google"`. Every other provider raises `RuntimeError("Direct provider '...' is not implemented yet")`.
-- `filter_supported_article_llm_options` (`config.py`) deliberately drops any model that does not start with `google/`. So even if I add `openai/gpt-...` or `anthropic/claude-...` to `ARTICLE_WRITER_LLM_OPTIONS`, it will be filtered out. To unlock OpenAI/Claude in Stage 2, **both places** must change.
+- `filter_supported_article_llm_options` (`config.py`) deliberately drops any model that does not start with `google/`. So even if `openai/gpt-...` or `anthropic/claude-...` is added to `ARTICLE_WRITER_LLM_OPTIONS`, it will be filtered out. To unlock OpenAI/Claude in Stage 2, **both places** must change.
+- Stage-1 "test post" was deferred to Stage 2: end-to-end generation needs a working provider key, and the `.env` has none today.
 
-**Full read+post flow**
+**Full read+post flow** — ❌ **still open (Stage 3).**
 - Missing a "full item summary" view for opening a feed item. Right now "open" = clicking the title which pops out to an external tab. Without an internal read step, `custom_prompt` is written based only on title + short summary.
 - Missing manual editing of the post after creation. Only `Copy` + "Create Another Version". This is the central gap for Stage 3.
 - Missing a language toggle on an existing post — need a decision: is this "create another post in English" (already exists) or "translate this post" (does not exist)?
@@ -122,6 +126,5 @@ Run flow: `create_run` (running) → only log activity during the run → `compl
 
 ## Open Notes From the Mapping
 
-- Every source shares the same generic User-Agent. For Reddit and GitHub this is a real 429 risk. Worth discussing before Stage 1.
-- `arxiv.enabled = false` in the current `sources.json` — contradicts what the PROGRESS journal says. Looks like a fork-time oversight. Flipping back to `true` belongs in Stage 1.
+- Every source shares the same generic User-Agent. For Reddit and GitHub this is a real 429 risk. Out of Stage-1 scope, tracked for a future stage.
 - The `drafts` table exists but `DailyPipeline` always feeds it `drafts=[]`. The name is misleading: the real output is `articles`, and the UI already redirects `/drafts` → `/articles`.
