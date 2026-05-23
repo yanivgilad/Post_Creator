@@ -44,7 +44,7 @@ def make_settings(tmp_path):
         product_hunt_stream="software",
         keywords=["ai", "llm", "agent"],
         source_weights={"hackernews": 1.0, "reddit": 0.9, "github": 1.1},
-        article_llm_options=["azure/gpt-4o"],
+        article_llm_options=["google/gemini-2.5-pro"],
         gemini_api_key=None,
         azure_openai_api_key=None,
         azure_openai_endpoint=None,
