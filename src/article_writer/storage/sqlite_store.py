@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
@@ -17,8 +18,32 @@ TIER_ORDER: dict[str, int] = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 VALID_TIERS = frozenset(TIER_WEIGHTS.keys())
 
 
+def _display_reason(reason_summary: str, evidence: list[str]) -> str:
+    """Build a human-readable reason from evidence, falling back to reason_summary."""
+    age_ev = next((e.split(": ", 1)[1] for e in evidence if e.startswith("Age:")), None)
+    kw_line = next((e for e in evidence if e.startswith("Keyword matches:")), None)
+    if kw_line:
+        kw_names = kw_line.split(": ", 1)[1].split(" (weight")[0].strip()
+        return f"{age_ev} · {kw_names}" if age_ev else kw_names
+    # New scorer format: "11.5h old · rag, llm"
+    if " · " in reason_summary:
+        return reason_summary
+    # Extract age from evidence or old reason_summary text
+    if age_ev:
+        return age_ev
+    m = re.search(r"\d+\.?\d*h old", reason_summary)
+    return m.group(0) if m else reason_summary
+
+
 class Base(DeclarativeBase):
     pass
+
+
+class AppKVRecord(Base):
+    __tablename__ = "app_kv"
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="{}")
 
 
 class PipelineRunRecord(Base):
@@ -332,6 +357,20 @@ class SQLiteStore:
                     row.llm_rank_score = score
             session.commit()
 
+    def get_kv(self, key: str) -> str | None:
+        with self.session() as session:
+            row = session.get(AppKVRecord, key)
+            return row.value if row else None
+
+    def set_kv(self, key: str, value: str) -> None:
+        with self.session() as session:
+            row = session.get(AppKVRecord, key)
+            if row is None:
+                session.add(AppKVRecord(key=key, value=value))
+            else:
+                row.value = value
+            session.commit()
+
     def session(self) -> Session:
         return self._session_factory()
 
@@ -351,6 +390,7 @@ class SQLiteStore:
         }
 
     def _serialize_trend(self, row: TrendRecord) -> dict[str, object]:
+        evidence = json.loads(row.evidence_json)
         return {
             "id": row.id,
             "run_id": row.run_id,
@@ -367,7 +407,8 @@ class SQLiteStore:
             "llm_rank_score": row.llm_rank_score,
             "is_ranked": row.is_ranked,
             "reason_summary": row.reason_summary,
-            "evidence": json.loads(row.evidence_json),
+            "display_reason": _display_reason(row.reason_summary, evidence),
+            "evidence": evidence,
             "supporting_urls": json.loads(row.supporting_urls_json),
             "metadata": json.loads(row.metadata_json),
         }

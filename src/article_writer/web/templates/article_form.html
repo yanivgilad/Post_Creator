@@ -20,14 +20,14 @@
       </div>
       <h3 dir="auto"><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
       <p dir="auto">{{ trend.summary }}</p>
-      <p class="muted" dir="auto">{{ trend.reason_summary }}</p>
+      <p class="muted" dir="auto">{{ trend.display_reason }}</p>
     </article>
 
     {% if error %}
       <div class="banner" style="margin-top: 16px; background: rgba(180, 35, 24, 0.12); border-color: rgba(180, 35, 24, 0.2); color: #7a271a;">{{ error }}</div>
     {% endif %}
 
-    <form class="stack" method="post" action="/articles" style="margin-top: 18px;">
+    <form class="stack" method="post" action="/articles" style="margin-top: 18px;" onsubmit="var btn=this.querySelector('[type=submit]');btn.disabled=true;btn.textContent='Creating…';">
       <input type="hidden" name="trend_id" value="{{ trend.id }}" />
       <label>
         Language

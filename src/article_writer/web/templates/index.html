@@ -12,14 +12,6 @@
       <div class="kpi-label">Latest Run</div>
       <div class="kpi-value">{% if latest_run %}#{{ latest_run.id }}{% else %}None{% endif %}</div>
     </div>
-    <div class="card">
-      <div class="kpi-label">Ranked Trends</div>
-      <div class="kpi-value">{% if latest_run %}{{ latest_run.trends | length }}{% else %}0{% endif %}</div>
-    </div>
-    <div class="card">
-      <div class="kpi-label">Manual Articles</div>
-      <div class="kpi-value">{{ article_count }}</div>
-    </div>
   </div>
 
   <div class="grid two">
@@ -94,7 +86,7 @@
               {% endif %}
             </div>
             <h3 dir="auto"><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
-            <p dir="auto">{{ trend.reason_summary }}</p>
+            <p dir="auto">{{ trend.display_reason }}</p>
             <div class="actions">
               <a class="button ghost" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
               <button type="button" class="button ghost summarize-btn" data-trend-id="{{ trend.id }}">Summarize</button>

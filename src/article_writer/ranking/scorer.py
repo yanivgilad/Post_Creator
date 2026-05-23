@@ -38,25 +38,25 @@ def rank_items(
         recency_score = max(settings.since_hours - age_hours, 0.0) / max(settings.since_hours, 1) * 5.0
         engagement_score = min(item.engagement_score, 500.0) / 50.0
         source_weight = settings.source_weights.get(item.source_name, 1.0) * 3.0
-        matched_weights = _keyword_match_weights(item, keywords)
-        keyword_score = min(sum(matched_weights), KEYWORD_SCORE_CAP)
-        keyword_hits = len(matched_weights)
+        matched = _keyword_matches(item, keywords)
+        keyword_score = min(sum(w for _, w in matched), KEYWORD_SCORE_CAP)
         novelty_bonus = 1.0 / math.sqrt(age_hours)
         total = source_weight + recency_score + engagement_score + keyword_score + novelty_bonus
+        matched_names = [kw for kw, _ in matched]
         evidence = [
             f"Source weight: {settings.source_weights.get(item.source_name, 1.0):.2f}",
             f"Age: {age_hours:.1f}h",
             f"Engagement: {item.engagement_score:.1f}",
         ]
-        if keyword_hits:
+        if matched_names:
             evidence.append(
-                f"Keyword matches: {keyword_hits} (weight {sum(matched_weights):.2f})"
+                f"Keyword matches: {', '.join(matched_names)} (weight {sum(w for _, w in matched):.2f})"
             )
         if item.metadata:
             for key in ("points", "comments", "stars", "forks", "ups", "votes", "subreddit", "query"):
                 if key in item.metadata:
                     evidence.append(f"{key.replace('_', ' ').title()}: {item.metadata[key]}")
-        reason_summary = _reason_summary(item, age_hours, keyword_hits)
+        reason_summary = _reason_summary(item, age_hours, matched_names)
         scored.append((total, item, evidence, reason_summary))
 
     scored.sort(key=lambda value: value[0], reverse=True)
@@ -74,19 +74,17 @@ def rank_items(
     return top_n, all_scored
 
 
-def _keyword_match_weights(item: SourceItem, keywords: list[tuple[str, str]]) -> list[float]:
+def _keyword_matches(item: SourceItem, keywords: list[tuple[str, str]]) -> list[tuple[str, float]]:
     haystack = f"{item.title} {item.summary}".lower()
-    weights: list[float] = []
-    for keyword, tier in keywords:
-        if keyword.lower() in haystack:
-            weights.append(TIER_WEIGHTS.get(tier, TIER_WEIGHTS["MEDIUM"]))
-    return weights
+    return [
+        (keyword, TIER_WEIGHTS.get(tier, TIER_WEIGHTS["MEDIUM"]))
+        for keyword, tier in keywords
+        if keyword.lower() in haystack
+    ]
 
 
-def _reason_summary(item: SourceItem, age_hours: float, keyword_hits: int) -> str:
-    parts = [f"Fresh from {item.source_name}", f"{age_hours:.1f}h old"]
-    if item.engagement_score:
-        parts.append(f"engagement {item.engagement_score:.0f}")
-    if keyword_hits:
-        parts.append(f"{keyword_hits} AI keyword hits")
-    return ", ".join(parts)
+def _reason_summary(item: SourceItem, age_hours: float, matched_keywords: list[str]) -> str:
+    age = f"{age_hours:.1f}h old"
+    if matched_keywords:
+        return f"{age} · {', '.join(matched_keywords)}"
+    return age

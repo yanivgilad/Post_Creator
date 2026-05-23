@@ -38,6 +38,7 @@ Read-first doc, written as part of Stage 0. Three logical layers: **Ingestion �
   3. Loops over every adapter: `source.fetch(since=now-since_hours, settings)`. A single failure = warning + continue; errors are accumulated in `errors`.
   4. `rank_items(all_items, settings)` (in `ranking/scorer.py`) returns `ranked` and `all_scored`.
   5. `store.complete_run(run_id, snapshot, source_count)` — persists everything. On exception: `store.fail_run(run_id, errors)` + `raise`.
+- **Keyword scoring (Stage 4.1):** `ranking/scorer.py` reads live keywords from `SQLiteStore.list_keywords_for_matching()` — not from `settings.keywords`. Score: `keyword_score = min(sum(matched_tier_weights), 3.0)`. Tier weights: `LOW=0.3`, `MEDIUM=0.6`, `HIGH=1.0`. Cap of 3.0 keeps keywords influential but below `recency_score`. `settings.keywords` is now seed-only (used by `init-db` and lifespan one-shot seeding).
 - `pipeline/scheduler.py` → `SchedulerService` wraps APScheduler's `BackgroundScheduler` in UTC. Daily `cron` at `schedule_hour:schedule_minute`. `_safe_run` swallows exceptions and logs them.
 - `serve` can start the scheduler, but **off by default since Stage 2**. Priority: CLI flag → env → `False`. `--scheduler` / `--no-scheduler` on `serve` overrides `ARTICLE_WRITER_SCHEDULER_ENABLED`, which itself defaults to `false`. The CLI passes the resolved bool to `create_app(..., start_scheduler=<bool>)` in `web/app.py`.
 
@@ -47,9 +48,10 @@ Read-first doc, written as part of Stage 0. Three logical layers: **Ingestion �
 
 Tables (SQLAlchemy ORM):
 - `pipeline_runs` — id, status, triggered_by, created/started/completed_at, source_count, raw/unique_item_count, error_text, log_text.
-- `trends` — every item ingested (not just the top-N): run_id, source_name, stream, external_id, title, url, summary, author, published_at, engagement_score, rank_score, **is_ranked** (whether the item made the top-N), reason_summary, evidence_json, supporting_urls_json, metadata_json.
+- `trends` — every item ingested (not just the top-N): run_id, source_name, stream, external_id, title, url, summary, author, published_at, engagement_score, rank_score, **is_ranked** (whether the item made the top-N), reason_summary, evidence_json, supporting_urls_json, metadata_json. When serialized via `_serialize_trend`, a computed `display_reason` field is added: it extracts age + matched keyword names from `evidence_json` (falls back to `reason_summary` for old records with empty evidence).
 - `drafts` — table exists but **is empty in practice** under the current flow. `complete_run` persists `snapshot.drafts` which is always `[]` in `DailyPipeline.run` (see `run_daily.py:65` — `drafts=[]`).
 - `articles` — the real "create post" output: trend_id, language, target_outlet, llm_name, title, body, metadata_json.
+- `keywords` **(Stage 4.1)** — id, keyword (unique, lowercased), tier (`LOW`/`MEDIUM`/`HIGH`), created_at, updated_at. Seeded once from `sources.json` at MEDIUM on `init-db` or app lifespan (one-shot — never overwrites user edits). CRUD via `SQLiteStore`: `list_keywords()`, `list_keywords_for_matching()`, `create_keyword()`, `update_keyword_tier()`, `delete_keyword()`, `seed_keywords_if_empty()`.
 
 Run flow: `create_run` (running) → only log activity during the run → `complete_run` (writes every trend in one batch, status `completed`) or `fail_run` (`failed`). There is also a lightweight `_migrate()` that adds missing columns (`log_text`, `is_ranked`, `stream`) without Alembic.
 
@@ -70,12 +72,20 @@ Run flow: `create_run` (running) → only log activity during the run → `compl
 | Article-creation form | `/articles/new?trend_id=X` | `article_form.html` | Language dropdown (Hebrew/English), platform dropdown (Twitter/LinkedIn/Reddit/Hashnode), LLM dropdown, `custom_prompt` textarea. |
 | Output | `/articles/{id}` | `article_detail.html` | Title + meta + body inside `<pre>`, Copy button (clipboard API + fallback). "Create Another Version" sends you back to the form with the same trend. |
 | Article index | `/articles` | `articles.html` | List of every article (filterable by stream/run_id). |
+| Keyword management | `/keywords` | `keywords.html` | **(Stage 4.3)** Full list sorted HIGH→MEDIUM→LOW. Per-row tier dropdown + delete. Add form at top. "Get suggestions" button calls `/api/keywords/suggestions` and shows per-suggestion Add + reasoning + per-call cost. |
+
+### Keyword API (Stage 4.2 — `/api/keywords`)
+- `GET /api/keywords` → ordered list with tier + weight.
+- `POST /api/keywords` body `{keyword, tier}` → create; 409 on duplicate, 400 on invalid tier.
+- `PATCH /api/keywords/{id}` body `{tier}` → change tier.
+- `DELETE /api/keywords/{id}` → remove.
+- `POST /api/keywords/suggestions` → calls `generation/keyword_suggester.py` (Azure gpt-4o, LinkedIn persona excerpt + latest run's top trends), returns `[{keyword, suggested_tier, reasoning}]` filtered against existing list. Cost tracked via `LLMUsageTracker`.
 
 ### Current support for the features I asked for
 
 | Feature | Status |
 |---|---|
-| **Short summary in feed** | ✅ Yes — `reason_summary` in `index.html`, and 160 chars of `summary` in `run_detail`. |
+| **Short summary in feed** | ✅ Yes — `display_reason` (age + matched keyword names) in `index.html`, and 160 chars of `summary` in `run_detail`. |
 | **Full item summary** | ❌ No internal item-detail page. The DB stores `summary` (up to 320 chars from the source) and `reason_summary`. Article body is never fetched. |
 | **Language toggle** | ⚠️ Only on the creation form (dropdown). Once a post exists there is no toggle; you have to use "Create Another Version". |
 | **Notes (`custom_prompt`)** | ✅ Yes — `textarea` on the form; saved into `article.metadata.custom_prompt` and rendered on `article_detail.html`. |

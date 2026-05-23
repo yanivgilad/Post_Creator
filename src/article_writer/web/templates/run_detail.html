@@ -39,7 +39,7 @@
               <p class="muted" style="font-size:13px;margin:4px 0 0;">{{ trend.summary[:160] }}{% if trend.summary | length > 160 %}…{% endif %}</p>
             {% endif %}
           </td>
-          <td dir="auto" style="font-size:13px;color:var(--muted);">{{ trend.reason_summary }}</td>
+          <td dir="auto" style="font-size:13px;color:var(--muted);">{{ trend.display_reason }}</td>
           <td>
             <a class="button ghost" style="font-size:12px;padding:7px 11px;" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
             <button type="button" class="button ghost summarize-btn" data-trend-id="{{ trend.id }}" style="font-size:12px;padding:7px 11px;margin-top:6px;">Summarize</button>
@@ -47,7 +47,10 @@
         </tr>
         <tr class="trend-summary-row" data-trend-id="{{ trend.id }}" style="display:none;">
           <td colspan="7" style="padding-top:0;border-bottom:1px solid var(--line);">
-            <div class="trend-summary" data-trend-id="{{ trend.id }}" dir="auto" style="padding:12px;border-radius:14px;background:rgba(13,148,136,0.06);border:1px solid rgba(13,148,136,0.18);font-size:13px;"></div>
+            <div style="position:relative;">
+              <button type="button" class="summary-close-btn" data-trend-id="{{ trend.id }}" style="position:absolute;top:8px;left:8px;background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted);line-height:1;" title="סגור">×</button>
+              <div class="trend-summary" data-trend-id="{{ trend.id }}" dir="rtl" style="padding:12px 12px 12px 32px;border-radius:14px;background:rgba(13,148,136,0.06);border:1px solid rgba(13,148,136,0.18);font-size:13px;"></div>
+            </div>
           </td>
         </tr>
       {% endfor %}
@@ -128,7 +131,15 @@
         <button id="llm-rank-btn" class="button secondary" style="font-size:12px;padding:7px 12px;" data-run-id="{{ run.id }}">Re-rank with LLM</button>
       </div>
     </div>
-    {% include "_stream_tabs.html" with context %}
+    <div id="llm-rank-progress" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:12px;background:rgba(13,148,136,0.07);border:1px solid rgba(13,148,136,0.18);font-size:13px;color:#0f5d58;"></div>
+    {% if high_keywords %}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+      <button class="button ghost kw-filter-btn active" data-kw="" style="font-size:12px;padding:6px 12px;" onclick="filterByKeyword(this,'')">All</button>
+      {% for kw in high_keywords %}
+      <button class="button ghost kw-filter-btn" data-kw="{{ kw }}" style="font-size:12px;padding:6px 12px;" onclick="filterByKeyword(this,'{{ kw }}')">{{ kw }}</button>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% set items = run.all_scored_items if run.all_scored_items else run.trends %}
     {% if items %}
       {% set sources = items | map(attribute='source_name') | unique | list | sort %}
@@ -209,6 +220,7 @@
   function renderSummaryPayload(panel, data) {
     panel.innerHTML = '';
     var textNode = document.createElement('div');
+    textNode.setAttribute('dir', 'rtl');
     textNode.textContent = data.summary;
     panel.appendChild(textNode);
     var meta = formatUsageLine(data.usage, data.cumulative);
@@ -221,6 +233,14 @@
     }
   }
 
+  function closeSummaryRow(trendId) {
+    document.querySelectorAll('.trend-summary-row[data-trend-id="' + trendId + '"]').forEach(function (r) { r.style.display = 'none'; });
+  }
+
+  document.querySelectorAll('.summary-close-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { closeSummaryRow(btn.dataset.trendId); });
+  });
+
   document.querySelectorAll('.summarize-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var trendId = btn.dataset.trendId;
@@ -228,10 +248,23 @@
       var rows = document.querySelectorAll('.trend-summary-row[data-trend-id="' + trendId + '"]');
       var panels = document.querySelectorAll('.trend-summary[data-trend-id="' + trendId + '"]');
       if (!panels.length) return;
+
+      // Toggle: if visible, close
+      if (rows[0] && rows[0].style.display !== 'none') {
+        closeSummaryRow(trendId);
+        return;
+      }
+
+      // If already loaded, just show
+      if (panels[0] && panels[0].dataset.loaded === 'true') {
+        rows.forEach(function (r) { r.style.display = ''; });
+        return;
+      }
+
       var originalLabel = btn.textContent;
       buttons.forEach(function (b) { b.disabled = true; b.textContent = 'Summarizing...'; });
       rows.forEach(function (r) { r.style.display = ''; });
-      panels.forEach(function (p) { p.style.color = ''; p.textContent = 'Summarizing...'; });
+      panels.forEach(function (p) { p.style.color = ''; p.textContent = 'מסכם...'; });
       fetch('/api/trends/' + trendId + '/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -244,11 +277,11 @@
           return r.json();
         })
         .then(function (data) {
-          panels.forEach(function (p) { renderSummaryPayload(p, data); });
+          panels.forEach(function (p) { renderSummaryPayload(p, data); p.dataset.loaded = 'true'; });
         })
         .catch(function (err) {
           panels.forEach(function (p) {
-            p.textContent = 'Summarization failed: ' + err.message;
+            p.textContent = 'שגיאה: ' + err.message;
             p.style.color = 'var(--danger)';
           });
         })
@@ -257,6 +290,60 @@
         });
     });
   });
+  // Keyword filter
+  function getActivePaneRows() {
+    var checked = document.querySelector('input[type="radio"][name^="src-tab-"]:checked');
+    var suffix = checked ? checked.id.replace(/^src-tab-\d+-/, '') : 'all';
+    var pane = document.querySelector('.pane-' + suffix) || document;
+    return pane.querySelectorAll('table tbody tr:not(.trend-summary-row)');
+  }
+
+  function countMatches(kw) {
+    var rows = getActivePaneRows();
+    var words = kw.toLowerCase().split(/\s+/);
+    var count = 0;
+    rows.forEach(function(row) {
+      var titleCell = row.querySelector('td:nth-child(5)');
+      var text = titleCell ? titleCell.textContent.toLowerCase() : '';
+      if (words.every(function(w) { return new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(text); })) count++;
+    });
+    return count;
+  }
+
+  function filterByKeyword(btn, kw) {
+    document.querySelectorAll('.kw-filter-btn').forEach(function(b) {
+      b.classList.remove('active');
+      b.style.background = '';
+      b.style.color = '';
+    });
+    btn.classList.add('active');
+    btn.style.background = 'var(--accent)';
+    btn.style.color = 'white';
+    var rows = document.querySelectorAll('table tbody tr:not(.trend-summary-row)');
+    rows.forEach(function(row) {
+      if (!kw) { row.style.display = ''; return; }
+      var titleCell = row.querySelector('td:nth-child(5)');
+      var text = titleCell ? titleCell.textContent.toLowerCase() : '';
+      var words = kw.toLowerCase().split(/\s+/);
+      row.style.display = words.every(function(w) { return new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(text); }) ? '' : 'none';
+    });
+    document.querySelectorAll('table tbody tr.trend-summary-row').forEach(function(row) {
+      row.style.display = 'none';
+    });
+  }
+
+  // Hide keyword chips with 0 matches, show count on the rest
+  document.querySelectorAll('.kw-filter-btn[data-kw]').forEach(function(btn) {
+    var kw = btn.dataset.kw;
+    if (!kw) return;
+    var n = countMatches(kw);
+    if (n === 0) {
+      btn.style.display = 'none';
+    } else {
+      btn.textContent = kw + ' (' + n + ')';
+    }
+  });
+
   // Sort toggle
   var currentSort = 'popularity';
   function sortItems(mode) {
@@ -285,24 +372,46 @@
 
   // Re-rank button
   var reRankBtn = document.getElementById('llm-rank-btn');
+  var progressDiv = document.getElementById('llm-rank-progress');
+  function setProgress(msg, isError) {
+    if (!progressDiv) return;
+    progressDiv.style.display = 'block';
+    progressDiv.style.color = isError ? 'var(--danger)' : '#0f5d58';
+    progressDiv.textContent = msg;
+  }
   if (reRankBtn) {
     reRankBtn.addEventListener('click', function() {
       var runId = reRankBtn.dataset.runId;
       var original = reRankBtn.textContent;
       reRankBtn.disabled = true;
       reRankBtn.textContent = 'Ranking...';
+      setProgress('⏳ Sending titles to LLM for relevance scoring…');
       fetch('/api/runs/' + runId + '/llm-rank', { method: 'POST' })
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+          if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || r.statusText); });
+          setProgress('⏳ Receiving scores…');
+          return r.json();
+        })
         .then(function(data) {
-          reRankBtn.textContent = 'Done (' + data.ranked_count + ' scored)';
-          setTimeout(function() { window.location.reload(); }, 1200);
+          if (data.ranked_count === 0) {
+            setProgress('⚠️ LLM returned 0 scores — check server logs for errors.', true);
+            reRankBtn.textContent = original;
+            reRankBtn.disabled = false;
+          } else {
+            setProgress('✅ Scored ' + data.ranked_count + ' items. Reloading…');
+            reRankBtn.textContent = 'Done!';
+            setTimeout(function() { window.location.reload(); }, 1000);
+          }
         })
         .catch(function(err) {
-          reRankBtn.textContent = 'Error: ' + err.message;
+          setProgress('❌ Re-rank failed: ' + err.message, true);
+          reRankBtn.textContent = original;
           reRankBtn.disabled = false;
         });
     });
   }
+  window.sortItems = sortItems;
+  window.filterByKeyword = filterByKeyword;
 })();
 </script>
 {% endblock %}
