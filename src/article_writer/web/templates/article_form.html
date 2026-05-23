@@ -51,9 +51,10 @@
       </label>
       <label>
         LLM
+        {% set default_llm = llm_options[0] if llm_options else 'azure/gpt-4o' %}
         <select name="llm_name" required>
           {% for llm in llm_options %}
-            <option value="{{ llm }}" {% if (values.llm_name or 'google/gemini-2.5-pro') == llm %}selected{% endif %}>{{ llm }}</option>
+            <option value="{{ llm }}" {% if (values.llm_name or default_llm) == llm %}selected{% endif %}>{{ llm }}</option>
           {% endfor %}
         </select>
       </label>

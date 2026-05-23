@@ -169,7 +169,7 @@ def summarize_trend(request: Request, trend_id: int, payload: SummarizePayload):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
-        summary = request.app.state.article_generator.summarize(
+        summary, usage = request.app.state.article_generator.summarize(
             trend,
             language=language,
             llm_name=llm_name,
@@ -177,7 +177,19 @@ def summarize_trend(request: Request, trend_id: int, payload: SummarizePayload):
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Summarization failed: {exc}") from exc
-    return {"summary": summary, "language": language, "llm_name": llm_name}
+    cumulative = request.app.state.usage_tracker.get_totals()
+    return {
+        "summary": summary,
+        "language": language,
+        "llm_name": llm_name,
+        "usage": usage,
+        "cumulative": cumulative,
+    }
+
+
+@router.get("/llm-usage")
+def llm_usage(request: Request):
+    return request.app.state.usage_tracker.get_totals()
 
 
 @router.get("/config")

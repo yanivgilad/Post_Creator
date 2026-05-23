@@ -7,6 +7,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from article_writer.config import Settings
+from article_writer.generation.llm_usage import LLMUsageTracker
 from article_writer.models import ArticleArtifact
 
 
@@ -147,6 +148,25 @@ PLATFORM_SYSTEM_PROMPTS = {
 
 
 class ManualArticleGenerator:
+    def __init__(self, usage_tracker: LLMUsageTracker | None = None):
+        self._usage_tracker = usage_tracker
+
+    def _record_usage(
+        self,
+        provider: str,
+        model: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+    ) -> dict[str, Any] | None:
+        if self._usage_tracker is None:
+            return None
+        return self._usage_tracker.record_call(
+            provider=provider,
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+
     def _normalize_custom_prompt(self, custom_prompt: str | None) -> str | None:
         if custom_prompt is None:
             return None
@@ -205,7 +225,7 @@ class ManualArticleGenerator:
         custom_prompt: str | None = None,
     ) -> ArticleArtifact:
         custom_prompt = self._normalize_custom_prompt(custom_prompt)
-        title, body, mode = self._generate_with_provider(
+        title, body, mode, usage = self._generate_with_provider(
             trend,
             language=language,
             target_outlet=target_outlet,
@@ -213,9 +233,11 @@ class ManualArticleGenerator:
             settings=settings,
             custom_prompt=custom_prompt,
         )
-        metadata = {"mode": mode}
+        metadata: dict[str, Any] = {"mode": mode}
         if custom_prompt:
             metadata["custom_prompt"] = custom_prompt
+        if usage is not None:
+            metadata["usage"] = usage
         return ArticleArtifact(
             trend_id=int(trend["id"]),
             language=language,
@@ -233,7 +255,7 @@ class ManualArticleGenerator:
         language: str,
         llm_name: str,
         settings: Settings,
-    ) -> str:
+    ) -> tuple[str, dict[str, Any] | None]:
         system_prompt = (
             f"You write short factual summaries of AI/tech items for a senior tech leader. "
             f"Write 2-3 short sentences in {language}. "
@@ -269,7 +291,7 @@ class ManualArticleGenerator:
         settings: Settings,
         temperature: float,
         max_tokens: int,
-    ) -> str:
+    ) -> tuple[str, dict[str, Any] | None]:
         provider_name, model_name = self._parse_model_name(llm_name)
         if provider_name == "azure":
             if not (
@@ -299,7 +321,14 @@ class ManualArticleGenerator:
             content = (response.choices[0].message.content or "").strip()
             if not content:
                 raise RuntimeError("Azure OpenAI returned empty content")
-            return content
+            usage_obj = getattr(response, "usage", None)
+            usage = self._record_usage(
+                provider="azure",
+                model=model_name,
+                prompt_tokens=int(getattr(usage_obj, "prompt_tokens", 0) or 0),
+                completion_tokens=int(getattr(usage_obj, "completion_tokens", 0) or 0),
+            )
+            return content, usage
         if provider_name == "google":
             if not settings.gemini_api_key:
                 raise RuntimeError("No Gemini API key is configured.")
@@ -336,7 +365,14 @@ class ManualArticleGenerator:
             ).strip()
             if not content:
                 raise RuntimeError("Gemini returned empty content")
-            return content
+            meta = raw.get("usageMetadata") or {}
+            usage = self._record_usage(
+                provider="google",
+                model=model_name,
+                prompt_tokens=int(meta.get("promptTokenCount", 0) or 0),
+                completion_tokens=int(meta.get("candidatesTokenCount", 0) or 0),
+            )
+            return content, usage
         raise RuntimeError(
             f"Direct provider '{provider_name}' is not implemented yet for model '{llm_name}'."
         )
@@ -350,11 +386,11 @@ class ManualArticleGenerator:
         llm_name: str,
         settings: Settings,
         custom_prompt: str | None,
-    ) -> tuple[str, str, str]:
+    ) -> tuple[str, str, str, dict[str, Any] | None]:
         provider_name, model_name = self._parse_model_name(llm_name)
         if provider_name == "google":
             try:
-                title, body = self._generate_with_gemini(
+                title, body, usage = self._generate_with_gemini(
                     trend,
                     language=language,
                     target_outlet=target_outlet,
@@ -362,12 +398,12 @@ class ManualArticleGenerator:
                     settings=settings,
                     custom_prompt=custom_prompt,
                 )
-                return title, body, "gemini"
+                return title, body, "gemini", usage
             except Exception as exc:
                 raise RuntimeError(f"Gemini request failed: {exc}") from exc
         if provider_name == "azure":
             try:
-                title, body = self._generate_with_azure_openai(
+                title, body, usage = self._generate_with_azure_openai(
                     trend,
                     language=language,
                     target_outlet=target_outlet,
@@ -375,7 +411,7 @@ class ManualArticleGenerator:
                     settings=settings,
                     custom_prompt=custom_prompt,
                 )
-                return title, body, "azure_openai"
+                return title, body, "azure_openai", usage
             except Exception as exc:
                 raise RuntimeError(f"Azure OpenAI request failed: {exc}") from exc
         raise RuntimeError(
@@ -399,7 +435,7 @@ class ManualArticleGenerator:
         model_name: str,
         settings: Settings,
         custom_prompt: str | None,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str, dict[str, Any] | None]:
         if not settings.gemini_api_key:
             raise RuntimeError("No Gemini API key is configured.")
 
@@ -454,7 +490,14 @@ class ManualArticleGenerator:
 
         first_line = content.splitlines()[0].strip()
         title = first_line.lstrip("# ").strip() if first_line.startswith("#") else str(trend["title"])
-        return title, content
+        meta = raw.get("usageMetadata") or {}
+        usage = self._record_usage(
+            provider="google",
+            model=model_name,
+            prompt_tokens=int(meta.get("promptTokenCount", 0) or 0),
+            completion_tokens=int(meta.get("candidatesTokenCount", 0) or 0),
+        )
+        return title, content, usage
 
     def _generate_with_azure_openai(
         self,
@@ -465,7 +508,7 @@ class ManualArticleGenerator:
         deployment_name: str,
         settings: Settings,
         custom_prompt: str | None,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str, dict[str, Any] | None]:
         if not (
             settings.azure_openai_api_key
             and settings.azure_openai_endpoint
@@ -504,7 +547,14 @@ class ManualArticleGenerator:
 
         first_line = content.splitlines()[0].strip()
         title = first_line.lstrip("# ").strip() if first_line.startswith("#") else str(trend["title"])
-        return title, content
+        usage_obj = getattr(response, "usage", None)
+        usage = self._record_usage(
+            provider="azure",
+            model=deployment_name,
+            prompt_tokens=int(getattr(usage_obj, "prompt_tokens", 0) or 0),
+            completion_tokens=int(getattr(usage_obj, "completion_tokens", 0) or 0),
+        )
+        return title, content, usage
 
     def _build_social_payload(
         self,

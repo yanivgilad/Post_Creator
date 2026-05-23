@@ -36,6 +36,13 @@
         </div>
       {% endif %}
       <pre dir="auto">{{ article.body }}</pre>
+      {% if article.metadata.usage %}
+        <div id="article-usage" dir="ltr" data-cost="{{ article.metadata.usage.cost_usd }}" data-prompt="{{ article.metadata.usage.prompt_tokens }}" data-completion="{{ article.metadata.usage.completion_tokens }}" style="margin-top: 12px; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px dashed var(--line);">
+          Tokens: {{ article.metadata.usage.prompt_tokens }} in / {{ article.metadata.usage.completion_tokens }} out
+          &middot; Cost: ${{ '%.4f'|format(article.metadata.usage.cost_usd or 0) }}
+          <span id="article-cumulative"></span>
+        </div>
+      {% endif %}
     </article>
   </section>
 
@@ -76,5 +83,17 @@ function fallbackCopy(text, onSuccess) {
   }
   document.body.removeChild(ta);
 }
+
+(function () {
+  var slot = document.getElementById('article-cumulative');
+  if (!slot) return;
+  fetch('/api/llm-usage')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      if (!data) return;
+      slot.textContent = ' · Total to date: $' + Number(data.total_cost_usd || 0).toFixed(4) + ' (' + data.total_calls + ' calls)';
+    })
+    .catch(function () { });
+})();
 </script>
 {% endblock %}

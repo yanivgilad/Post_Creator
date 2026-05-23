@@ -177,6 +177,34 @@
 
 <script>
 (function () {
+  function formatUsageLine(usage, cumulative) {
+    if (!usage && !cumulative) return '';
+    var parts = [];
+    if (usage) {
+      parts.push('Tokens: ' + usage.prompt_tokens + ' in / ' + usage.completion_tokens + ' out');
+      parts.push('Cost: $' + Number(usage.cost_usd || 0).toFixed(4));
+    }
+    if (cumulative) {
+      parts.push('Total: $' + Number(cumulative.total_cost_usd || 0).toFixed(4) + ' (' + cumulative.total_calls + ' calls)');
+    }
+    return parts.join(' · ');
+  }
+
+  function renderSummaryPayload(panel, data) {
+    panel.innerHTML = '';
+    var textNode = document.createElement('div');
+    textNode.textContent = data.summary;
+    panel.appendChild(textNode);
+    var meta = formatUsageLine(data.usage, data.cumulative);
+    if (meta) {
+      var metaNode = document.createElement('div');
+      metaNode.setAttribute('dir', 'ltr');
+      metaNode.style.cssText = 'margin-top:8px;padding-top:8px;border-top:1px dashed rgba(13,148,136,0.25);font-size:11px;color:var(--muted);';
+      metaNode.textContent = meta;
+      panel.appendChild(metaNode);
+    }
+  }
+
   document.querySelectorAll('.summarize-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var trendId = btn.dataset.trendId;
@@ -200,7 +228,7 @@
           return r.json();
         })
         .then(function (data) {
-          panels.forEach(function (p) { p.textContent = data.summary; });
+          panels.forEach(function (p) { renderSummaryPayload(p, data); });
         })
         .catch(function (err) {
           panels.forEach(function (p) {
