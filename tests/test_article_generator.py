@@ -97,7 +97,7 @@ def test_generator_calls_gemini_directly(settings, monkeypatch):
     )
     payload = json.loads(captured["data"])
     assert "ghostwriter" in payload["system_instruction"]["parts"][0]["text"]
-    assert "Amit Raz" in payload["system_instruction"]["parts"][0]["text"]
+    assert "Yaniv Gilad" in payload["system_instruction"]["parts"][0]["text"]
     user_text = payload["contents"][0]["parts"][0]["text"]
     user_data = json.loads(user_text)
     assert user_data["title"] == TREND["title"]
@@ -156,9 +156,9 @@ def test_build_system_prompt_varies_by_platform(settings):
     linkedin_prompt = generator._build_system_prompt("LinkedIn", settings)
 
     assert "ghostwriter" in twitter_prompt
-    assert "Amit Raz" in twitter_prompt
+    assert "Yaniv Gilad" in twitter_prompt
     assert "Target outlet: Twitter/X." not in twitter_prompt
 
     assert "ghostwriter" in linkedin_prompt
-    assert "Amit Raz" in linkedin_prompt
+    assert "Yaniv Gilad" in linkedin_prompt
     assert "Target outlet: LinkedIn." not in linkedin_prompt
