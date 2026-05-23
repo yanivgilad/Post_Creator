@@ -20,8 +20,9 @@ A personal tool that pulls items from interest areas (AI / LLM / RAG) across sel
 | 0 | Code mapping + first run | `done` | Short `docs/ARCHITECTURE.md` written; `init-db` + `run-once` run successfully; a real feed is visible at `http://127.0.0.1:8000` (live-run portion intentionally deferred to Stage 2) |
 | 1 | Personalization: config + persona | `done` | `sources.json` trimmed to my domains + arXiv enabled; `prompts/linkedin_system_prompt.txt` replaced with Yaniv's persona; a test post sounds like me |
 | 2 | Add LLM provider (Azure OpenAI) | `done` | Azure OpenAI provider wired (default `azure/gpt-4o`); LinkedIn post generated in Hebrew end-to-end; scheduler off by default |
-| 3 | Sharpen the read+post flow | `pending` | Full manual path works: short summary in feed → open → full summary → create post → language toggle → notes → revision → manual edit → copy button |
-| 4 | (Later/optional) Automatic LinkedIn publishing | `pending` | OAuth + `w_member_social` + approval gate before publishing |
+| 3 | UX sharpening (RTL + on-demand summary) | `done` | Hebrew renders RTL in the dashboard; per-item Summarize button calls Azure and shows a short summary inline; LLM usage + cumulative cost displayed per call and on article-detail pages. **Smart Rank (the full-article re-ranker) was de-scoped mid-stage** and will be its own future stage if needed. |
+| 4 | Keyword management UI + LLM suggestions | `pending` | `/keywords` page lists keywords ordered by importance with drag-reorder, inline edit, delete, add; ordering affects `rank_score` on the next run; "Get suggestions" returns LLM-generated keyword recommendations matched to Yaniv's persona + latest trends |
+| 5 | (Later/optional) Automatic LinkedIn publishing | `pending` | OAuth + `w_member_social` + approval gate before publishing |
 
 ## Decision log
 - **Personal** use only → Reddit's free tier is legal and sufficient (non-commercial).
@@ -55,6 +56,13 @@ A personal tool that pulls items from interest areas (AI / LLM / RAG) across sel
 - **Test post deferred to Stage 2:** end-to-end generation needs a working provider key, and the `.env` has none today. The DoD in `docs/stages/stage-1.md` explicitly allows this deferral.
 - Zero "Amit"/"rzailabs" strings remain under `src/` or `prompts/` (verified via `findstr /S /I /M`).
 - No commit performed by Claude — Yaniv will commit manually after final review.
+
+## Stage 3 notes (done)
+- **Three features were planned: RTL + on-demand summary + Smart Rank.** Yaniv reviewed the Smart Rank feature mid-stage and chose to **de-scope it** — it would be the slowest and most expensive action in the tool, and the value gap vs. the existing source-weight + freshness ranking did not justify the cost in his current workflow. If reintroduced it will be its own stage.
+- **Feature 1 — RTL (`1071c7c`):** added `dir="auto"` to dynamic-content elements in 5 templates (`article_detail`, `article_form`, `articles`, `index`, `run_detail`). Per-element auto-detection keeps the English UI chrome LTR while Hebrew posts and titles flip right-aligned. No CSS or JS change.
+- **Patch (`add0d95`):** restored the test suite. `tests/conftest.py` was missing four `Settings` fields added in Stage 2 (`scheduler_enabled`, `azure_openai_api_key/endpoint/api_version`), and `test_article_generator.py` still asserted the pre-Stage-1 "Amit Raz" persona. All 15 tests green again — necessary safety net for Feature 2 onwards.
+- **Feature 2 — On-demand summary (`fc2ca22`):** added per-item Summarize button on `index.html` Top 10 and on `run_detail.html` table rows. New `POST /api/trends/{id}/summarize` endpoint calls Azure with a tight 2-3 sentence prompt (`max_tokens=300`, `temperature=0.3`). New `summarize()` and `_chat()` helper on `ManualArticleGenerator` keep `generate()` untouched. No DB persistence — on-demand only, refreshed per click.
+- **Cost tracking (`600054c`):** new `generation/llm_usage.py` with `LLMUsageTracker`, persists token/cost totals to `data/llm_usage.json` (atomic write + lock). gpt-4o pricing hardcoded from OpenAI list ($2.50/1M input, $10.00/1M output, treated as uncached). Both `summarize()` and `generate()` paths record usage; `generate()` stores per-call usage in `article.metadata` so the detail page can render it. New `GET /api/llm-usage` exposes cumulative totals. Drive-by fix: `article_form.html`'s LLM dropdown defaulted to the hardcoded `google/gemini-2.5-pro`; switched to `llm_options[0]` so `azure/gpt-4o` (the active provider since Stage 2) is the default.
 
 ## Stage 2 notes (done)
 - **Provider — Azure OpenAI, not OpenAI direct:** initial attempt against `api.openai.com` returned 401 — the Kaleidoo key is an Azure OpenAI key. Stage-2 spec was updated before any code landed. `_generate_with_azure_openai` in `article_generator.py` uses `AzureOpenAI` from the `openai` SDK with `api_key + azure_endpoint + api_version` from `.env`. Default deployment: `azure/gpt-4o`.
