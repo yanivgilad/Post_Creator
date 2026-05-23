@@ -24,7 +24,7 @@ class DeepMindSource(SourceAdapter):
     def enabled(self, settings: Settings) -> bool:
         return settings.enable_deepmind
 
-    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+    def fetch(self, since: datetime, settings: Settings, *, keywords: list[str] | None = None) -> list[SourceItem]:
         items: dict[str, SourceItem] = {}
         for feed_url in settings.deepmind_feeds:
             try:

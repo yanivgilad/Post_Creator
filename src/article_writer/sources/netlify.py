@@ -42,7 +42,7 @@ class NetlifyBlogSource(SourceAdapter):
     def enabled(self, settings: Settings) -> bool:
         return settings.enable_netlify
 
-    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+    def fetch(self, since: datetime, settings: Settings, *, keywords: list[str] | None = None) -> list[SourceItem]:
         try:
             html = self._get_text(BLOG_URL, settings, headers={"Accept": "text/html, */*"})
         except Exception:
