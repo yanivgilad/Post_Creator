@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 from article_writer.config import Settings
 from article_writer.models import PipelineSnapshot
 from article_writer.ranking.scorer import rank_items
+from article_writer.ranking.llm_ranker import llm_rank
 from article_writer.sources import build_enabled_sources
 from article_writer.sources.base import SourceAdapter
 from article_writer.storage.sqlite_store import SQLiteStore
@@ -58,6 +59,13 @@ class DailyPipeline:
             unique_count = len({item.dedup_key for item in all_items})
             logger.info("Ranking %d items (%d unique)...", len(all_items), unique_count)
             ranked, all_scored = rank_items(all_items, self.settings, keyword_tuples)
+            try:
+                llm_scores = llm_rank(all_scored, keyword_strings, self.settings)
+                for idx, trend in enumerate(all_scored):
+                    if idx in llm_scores:
+                        trend.llm_rank_score = llm_scores[idx]
+            except Exception as exc:
+                logger.warning("LLM re-ranking failed: %s", exc)
             snapshot = PipelineSnapshot(
                 ranked_trends=ranked,
                 all_scored_items=all_scored,
