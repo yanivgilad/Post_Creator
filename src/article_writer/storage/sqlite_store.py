@@ -175,6 +175,7 @@ class SQLiteStore:
                         published_at=trend.source_item.published_at,
                         engagement_score=trend.source_item.engagement_score,
                         rank_score=trend.score,
+                        llm_rank_score=trend.llm_rank_score,
                         is_ranked=trend.source_item.dedup_key in ranked_keys,
                         reason_summary=trend.reason_summary,
                         evidence_json=json.dumps(trend.evidence),
@@ -319,6 +320,17 @@ class SQLiteStore:
             if run is not None:
                 run.log_text = log_text
                 session.commit()
+
+    def update_trends_llm_rank(self, scores: dict[int, float]) -> None:
+        """Update llm_rank_score for the given trend DB ids."""
+        if not scores:
+            return
+        with self.session() as session:
+            for trend_id, score in scores.items():
+                row = session.get(TrendRecord, trend_id)
+                if row is not None:
+                    row.llm_rank_score = score
+            session.commit()
 
     def session(self) -> Session:
         return self._session_factory()

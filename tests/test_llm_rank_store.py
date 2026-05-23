@@ -35,3 +35,28 @@ def test_llm_rank_score_defaults_to_none(tmp_path):
         session.commit()
         session.refresh(row)
         assert row.llm_rank_score is None
+
+
+def test_update_trends_llm_rank(tmp_path):
+    from datetime import datetime, timezone
+    from article_writer.storage.sqlite_store import TrendRecord
+    settings = make_settings(tmp_path)
+    store = SQLiteStore(settings)
+    store.init_db()
+    run_id = store.create_run("test")
+
+    with store.session() as session:
+        row = TrendRecord(
+            run_id=run_id, source_name="hn", external_id="x1",
+            title="T1", url="https://a.com", summary="",
+            published_at=datetime.now(timezone.utc),
+            rank_score=1.0, reason_summary="",
+        )
+        session.add(row)
+        session.commit()
+        trend_id = row.id
+
+    store.update_trends_llm_rank({trend_id: 8.5})
+
+    trend = store.get_trend(trend_id)
+    assert trend["llm_rank_score"] == pytest.approx(8.5)
