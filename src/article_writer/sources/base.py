@@ -27,7 +27,13 @@ class SourceAdapter(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+    def fetch(
+        self,
+        since: datetime,
+        settings: Settings,
+        *,
+        keywords: list[str] | None = None,
+    ) -> list[SourceItem]:
         raise NotImplementedError
 
     def _request_headers(self, settings: Settings, extra: dict[str, str] | None = None) -> dict[str, str]:

@@ -17,7 +17,14 @@ class LobstersSource(SourceAdapter):
     def enabled(self, settings: Settings) -> bool:
         return settings.enable_lobsters
 
-    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+    def fetch(
+        self,
+        since: datetime,
+        settings: Settings,
+        *,
+        keywords: list[str] | None = None,
+    ) -> list[SourceItem]:
+        active_keywords = settings.keywords if keywords is None else keywords
         items: dict[str, SourceItem] = {}
         for stream, endpoints in settings.lobsters_endpoints.items():
             for endpoint in endpoints:
@@ -37,7 +44,7 @@ class LobstersSource(SourceAdapter):
                     if not title or not url:
                         continue
                     description = story.get("description") or ""
-                    if not matches_keywords(f"{title} {description}", settings.keywords):
+                    if not matches_keywords(f"{title} {description}", active_keywords):
                         continue
                     published_at = parse_datetime(story.get("created_at"))
                     if published_at is None or published_at < since:

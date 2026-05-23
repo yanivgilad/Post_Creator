@@ -17,7 +17,14 @@ class RedditSource(SourceAdapter):
     def enabled(self, settings: Settings) -> bool:
         return settings.enable_reddit
 
-    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+    def fetch(
+        self,
+        since: datetime,
+        settings: Settings,
+        *,
+        keywords: list[str] | None = None,
+    ) -> list[SourceItem]:
+        active_keywords = settings.keywords if keywords is None else keywords
         items: dict[str, SourceItem] = {}
         for stream, subreddits in settings.reddit_subreddits.items():
             for subreddit in subreddits:
@@ -39,7 +46,7 @@ class RedditSource(SourceAdapter):
                         continue
                     selftext = strip_html(data.get("selftext") or "")
                     haystack = f"{title} {selftext}"
-                    if not matches_keywords(haystack, settings.keywords):
+                    if not matches_keywords(haystack, active_keywords):
                         continue
                     item = SourceItem(
                         source_name=self.name,

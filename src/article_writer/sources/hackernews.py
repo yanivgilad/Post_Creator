@@ -17,7 +17,14 @@ class HackerNewsSource(SourceAdapter):
     def enabled(self, settings: Settings) -> bool:
         return settings.enable_hackernews
 
-    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+    def fetch(
+        self,
+        since: datetime,
+        settings: Settings,
+        *,
+        keywords: list[str] | None = None,
+    ) -> list[SourceItem]:
+        active_keywords = settings.keywords if keywords is None else keywords
         hits: dict[str, SourceItem] = {}
         timestamp = int(since.timestamp())
         for stream, queries in settings.hackernews_queries.items():
@@ -37,7 +44,7 @@ class HackerNewsSource(SourceAdapter):
                     if not title or not article_url:
                         continue
                     body = f"{title} {hit.get('story_text') or ''}"
-                    if not matches_keywords(body, settings.keywords):
+                    if not matches_keywords(body, active_keywords):
                         continue
                     published_at = parse_datetime(hit.get("created_at"))
                     if published_at is None or published_at < since:

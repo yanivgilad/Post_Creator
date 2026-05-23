@@ -17,7 +17,14 @@ class GitHubSource(SourceAdapter):
     def enabled(self, settings: Settings) -> bool:
         return settings.enable_github
 
-    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+    def fetch(
+        self,
+        since: datetime,
+        settings: Settings,
+        *,
+        keywords: list[str] | None = None,
+    ) -> list[SourceItem]:
+        active_keywords = settings.keywords if keywords is None else keywords
         items: dict[str, SourceItem] = {}
         since_date = since.date().isoformat()
         headers = {"Accept": "application/vnd.github+json"}
@@ -40,7 +47,7 @@ class GitHubSource(SourceAdapter):
                         continue
                     description = repo.get("description") or ""
                     haystack = f"{title} {description}"
-                    if not matches_keywords(haystack, settings.keywords):
+                    if not matches_keywords(haystack, active_keywords):
                         continue
                     published_at = parse_datetime(repo.get("created_at"))
                     if published_at is None or published_at < since:

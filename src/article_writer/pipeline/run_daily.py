@@ -44,9 +44,11 @@ class DailyPipeline:
 
         try:
             since = self._since_timestamp()
+            keyword_tuples = self.store.list_keywords_for_matching()
+            keyword_strings = [kw for kw, _ in keyword_tuples]
             for source in self.sources:
                 try:
-                    fetched = source.fetch(since, self.settings)
+                    fetched = source.fetch(since, self.settings, keywords=keyword_strings)
                     all_items.extend(fetched)
                     logger.info("[%s] fetched %d items", source.name, len(fetched))
                 except Exception as exc:
@@ -55,7 +57,7 @@ class DailyPipeline:
 
             unique_count = len({item.dedup_key for item in all_items})
             logger.info("Ranking %d items (%d unique)...", len(all_items), unique_count)
-            ranked, all_scored = rank_items(all_items, self.settings)
+            ranked, all_scored = rank_items(all_items, self.settings, keyword_tuples)
             snapshot = PipelineSnapshot(
                 ranked_trends=ranked,
                 all_scored_items=all_scored,

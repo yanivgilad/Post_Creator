@@ -5,12 +5,26 @@ import math
 
 from article_writer.config import Settings
 from article_writer.models import RankedTrend, SourceItem
+from article_writer.storage.sqlite_store import TIER_WEIGHTS
+
+
+KEYWORD_SCORE_CAP = 3.0
 
 
 def rank_items(
-    items: list[SourceItem], settings: Settings
+    items: list[SourceItem],
+    settings: Settings,
+    keywords: list[tuple[str, str]] | None = None,
 ) -> tuple[list[RankedTrend], list[RankedTrend]]:
-    """Return (top_n_ranked, all_scored) — all_scored is sorted by score desc."""
+    """Return (top_n_ranked, all_scored) — all_scored is sorted by score desc.
+
+    `keywords` is a list of `(keyword, tier)` tuples from the live DB. When not
+    provided, falls back to `settings.keywords` treated as MEDIUM (legacy path
+    for tests / direct callers).
+    """
+    if keywords is None:
+        keywords = [(kw, "MEDIUM") for kw in settings.keywords]
+
     now = datetime.now(timezone.utc)
     unique_items: dict[str, SourceItem] = {}
     for item in items:
@@ -24,8 +38,9 @@ def rank_items(
         recency_score = max(settings.since_hours - age_hours, 0.0) / max(settings.since_hours, 1) * 5.0
         engagement_score = min(item.engagement_score, 500.0) / 50.0
         source_weight = settings.source_weights.get(item.source_name, 1.0) * 3.0
-        keyword_hits = _keyword_hits(item, settings)
-        keyword_score = min(keyword_hits, 5) * 0.45
+        matched_weights = _keyword_match_weights(item, keywords)
+        keyword_score = min(sum(matched_weights), KEYWORD_SCORE_CAP)
+        keyword_hits = len(matched_weights)
         novelty_bonus = 1.0 / math.sqrt(age_hours)
         total = source_weight + recency_score + engagement_score + keyword_score + novelty_bonus
         evidence = [
@@ -34,7 +49,9 @@ def rank_items(
             f"Engagement: {item.engagement_score:.1f}",
         ]
         if keyword_hits:
-            evidence.append(f"Keyword matches: {keyword_hits}")
+            evidence.append(
+                f"Keyword matches: {keyword_hits} (weight {sum(matched_weights):.2f})"
+            )
         if item.metadata:
             for key in ("points", "comments", "stars", "forks", "ups", "votes", "subreddit", "query"):
                 if key in item.metadata:
@@ -57,9 +74,13 @@ def rank_items(
     return top_n, all_scored
 
 
-def _keyword_hits(item: SourceItem, settings: Settings) -> int:
+def _keyword_match_weights(item: SourceItem, keywords: list[tuple[str, str]]) -> list[float]:
     haystack = f"{item.title} {item.summary}".lower()
-    return sum(1 for keyword in settings.keywords if keyword.lower() in haystack)
+    weights: list[float] = []
+    for keyword, tier in keywords:
+        if keyword.lower() in haystack:
+            weights.append(TIER_WEIGHTS.get(tier, TIER_WEIGHTS["MEDIUM"]))
+    return weights
 
 
 def _reason_summary(item: SourceItem, age_hours: float, keyword_hits: int) -> str:

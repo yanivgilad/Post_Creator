@@ -13,9 +13,16 @@ class ProductHuntSource(SourceAdapter):
     def enabled(self, settings: Settings) -> bool:
         return settings.enable_product_hunt and bool(settings.product_hunt_token)
 
-    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+    def fetch(
+        self,
+        since: datetime,
+        settings: Settings,
+        *,
+        keywords: list[str] | None = None,
+    ) -> list[SourceItem]:
         if not settings.product_hunt_token:
             return []
+        active_keywords = settings.keywords if keywords is None else keywords
 
         query = {
             "query": "query Posts($postedAfter: DateTime!) { posts(first: 10, postedAfter: $postedAfter) { edges { node { id name tagline url createdAt votesCount website } } } }",
@@ -35,7 +42,7 @@ class ProductHuntSource(SourceAdapter):
             url = node.get("url") or node.get("website")
             if not title or not url:
                 continue
-            if not matches_keywords(f"{title} {tagline}", settings.keywords):
+            if not matches_keywords(f"{title} {tagline}", active_keywords):
                 continue
             published_at = parse_datetime(node.get("createdAt"))
             if published_at is None or published_at < since:

@@ -14,7 +14,7 @@ class FakeSource(SourceAdapter):
     def enabled(self, settings):
         return True
 
-    def fetch(self, since: datetime, settings):
+    def fetch(self, since: datetime, settings, *, keywords=None):
         from article_writer.models import SourceItem, utc_now
 
         return [
