@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import json
 from pathlib import Path
 
 from fastapi import FastAPI, status
@@ -30,7 +31,13 @@ def create_app(settings: Settings | None = None, *, start_scheduler: bool = True
         store.seed_keywords_if_empty(resolved_settings.keywords)
         pipeline = DailyPipeline(resolved_settings, store)
         scheduler = SchedulerService(resolved_settings, pipeline)
-        usage_tracker = LLMUsageTracker(resolved_settings.data_dir / "llm_usage.json")
+        stored_usage = store.get_kv("llm_usage")
+        initial_totals = json.loads(stored_usage) if stored_usage else None
+        usage_tracker = LLMUsageTracker(
+            resolved_settings.data_dir / "llm_usage.json",
+            initial_totals=initial_totals,
+            on_save=lambda totals: store.set_kv("llm_usage", json.dumps(totals)),
+        )
         article_generator = ManualArticleGenerator(usage_tracker=usage_tracker)
         keyword_suggester = KeywordSuggester(article_generator)
 

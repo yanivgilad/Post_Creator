@@ -70,7 +70,6 @@ def dashboard_view(request: Request):
             "latest_run": latest_run,
             "recent_runs": recent_runs,
             "recent_articles": recent_articles,
-            "article_count": len(recent_articles) if not latest_run else len(latest_run.get("articles", [])),
             "message": request.query_params.get("message"),
             "is_running": request.app.state.pipeline.is_running,
         },
@@ -168,6 +167,8 @@ def run_detail_view(request: Request, run_id: int, stream: str | None = None):
     run = request.app.state.store.get_run(run_id, stream=selected_stream)
     if run is None:
         raise HTTPException(status_code=404, detail="Run not found")
+    all_keywords = request.app.state.store.list_keywords()
+    high_keywords = [kw["keyword"] for kw in all_keywords if kw["tier"] == "HIGH"]
     return request.app.state.templates.TemplateResponse(
         request,
         "run_detail.html",
@@ -177,6 +178,7 @@ def run_detail_view(request: Request, run_id: int, stream: str | None = None):
             "streams": list(STREAMS),
             "current_stream": selected_stream,
             "stream_counts": run.get("stream_counts", {}),
+            "high_keywords": high_keywords,
             "base_url": f"/runs/{run_id}",
             "extra_query": "",
         },

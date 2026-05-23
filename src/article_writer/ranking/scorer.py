@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import math
+import re
 
 from article_writer.config import Settings
 from article_writer.models import RankedTrend, SourceItem
@@ -76,11 +77,25 @@ def rank_items(
 
 def _keyword_matches(item: SourceItem, keywords: list[tuple[str, str]]) -> list[tuple[str, float]]:
     haystack = f"{item.title} {item.summary}".lower()
-    return [
-        (keyword, TIER_WEIGHTS.get(tier, TIER_WEIGHTS["MEDIUM"]))
-        for keyword, tier in keywords
-        if keyword.lower() in haystack
-    ]
+    result = []
+    for keyword, tier in keywords:
+        kw_lower = keyword.lower()
+        base = TIER_WEIGHTS.get(tier, TIER_WEIGHTS["MEDIUM"])
+        words = kw_lower.split()
+        if len(words) <= 1:
+            if re.search(r"\b" + re.escape(kw_lower) + r"\b", haystack):
+                result.append((keyword, base))
+        elif kw_lower in haystack:
+            # Full phrase match → full weight
+            result.append((keyword, base))
+        else:
+            # Partial: proportion of individual words that appear
+            matched_count = sum(
+                1 for w in words if re.search(r"\b" + re.escape(w) + r"\b", haystack)
+            )
+            if matched_count > 0:
+                result.append((keyword, base * matched_count / len(words)))
+    return result
 
 
 def _reason_summary(item: SourceItem, age_hours: float, matched_keywords: list[str]) -> str:

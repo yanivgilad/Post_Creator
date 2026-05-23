@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 
 from article_writer.models import utc_now
@@ -7,6 +8,7 @@ from article_writer.sources.lobsters import LobstersSource
 
 
 def test_lobsters_fetch_accepts_string_submitter_user(settings, monkeypatch):
+    settings = replace(settings, lobsters_endpoints={"software": ["https://lobste.rs/t/ai.json"]})
     source = LobstersSource()
 
     def fake_get_json(url, current_settings):

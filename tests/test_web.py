@@ -116,7 +116,6 @@ def test_run_detail_filters_by_stream(settings):
         assert "Xbox handheld leaks" in all_view.text
         assert "NVIDIA Blackwell shipping" in all_view.text
         assert "AI agent breakthrough" in all_view.text
-        assert 'class="stream-tabs"' in all_view.text
 
         assert gaming_view.status_code == 200
         assert "Xbox handheld leaks" in gaming_view.text

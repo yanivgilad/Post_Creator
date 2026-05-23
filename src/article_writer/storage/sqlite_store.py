@@ -18,17 +18,34 @@ TIER_ORDER: dict[str, int] = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 VALID_TIERS = frozenset(TIER_WEIGHTS.keys())
 
 
-def _display_reason(reason_summary: str, evidence: list[str]) -> str:
+def _display_reason(
+    reason_summary: str,
+    evidence: list[str],
+    *,
+    title: str = "",
+    summary: str = "",
+    keywords: list[tuple[str, str]] | None = None,
+) -> str:
     """Build a human-readable reason from evidence, falling back to reason_summary."""
     age_ev = next((e.split(": ", 1)[1] for e in evidence if e.startswith("Age:")), None)
     kw_line = next((e for e in evidence if e.startswith("Keyword matches:")), None)
+
+    kw_names: str | None = None
     if kw_line:
-        kw_names = kw_line.split(": ", 1)[1].split(" (weight")[0].strip()
+        candidate = kw_line.split(": ", 1)[1].split(" (weight")[0].strip()
+        if candidate.isdigit() and keywords and (title or summary):
+            # Old evidence stored a count only — re-compute names from stored text
+            haystack = f"{title} {summary}".lower()
+            matched = [kw for kw, _ in keywords if kw.lower() in haystack]
+            kw_names = ", ".join(matched) if matched else None
+        elif not candidate.isdigit():
+            kw_names = candidate
+
+    if kw_names:
         return f"{age_ev} · {kw_names}" if age_ev else kw_names
-    # New scorer format: "11.5h old · rag, llm"
+    # New scorer format already has keywords: "11.5h old · rag, llm"
     if " · " in reason_summary:
         return reason_summary
-    # Extract age from evidence or old reason_summary text
     if age_ev:
         return age_ev
     m = re.search(r"\d+\.?\d*h old", reason_summary)
@@ -251,8 +268,9 @@ class SQLiteStore:
             if row is None:
                 return None
             payload = self._serialize_run(row)
+            keywords = self.list_keywords_for_matching()
             all_trends = sorted(
-                [self._serialize_trend(item) for item in row.trends],
+                [self._serialize_trend(item, keywords) for item in row.trends],
                 key=lambda t: t["rank_score"],
                 reverse=True,
             )
@@ -389,7 +407,11 @@ class SQLiteStore:
             "log_text": row.log_text,
         }
 
-    def _serialize_trend(self, row: TrendRecord) -> dict[str, object]:
+    def _serialize_trend(
+        self,
+        row: TrendRecord,
+        keywords: list[tuple[str, str]] | None = None,
+    ) -> dict[str, object]:
         evidence = json.loads(row.evidence_json)
         return {
             "id": row.id,
@@ -407,7 +429,13 @@ class SQLiteStore:
             "llm_rank_score": row.llm_rank_score,
             "is_ranked": row.is_ranked,
             "reason_summary": row.reason_summary,
-            "display_reason": _display_reason(row.reason_summary, evidence),
+            "display_reason": _display_reason(
+                row.reason_summary,
+                evidence,
+                title=row.title or "",
+                summary=row.summary or "",
+                keywords=keywords,
+            ),
             "evidence": evidence,
             "supporting_urls": json.loads(row.supporting_urls_json),
             "metadata": json.loads(row.metadata_json),

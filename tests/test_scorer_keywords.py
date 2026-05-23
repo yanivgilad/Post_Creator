@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from article_writer.models import SourceItem, utc_now
-from article_writer.ranking.scorer import KEYWORD_SCORE_CAP, _keyword_match_weights, rank_items
+from article_writer.ranking.scorer import KEYWORD_SCORE_CAP, _keyword_matches, rank_items
 
 
 def _item(title: str, summary: str = "") -> SourceItem:
@@ -21,13 +21,13 @@ def _item(title: str, summary: str = "") -> SourceItem:
 
 def test_match_weights_empty_list_returns_no_weights():
     item = _item("LLM agent benchmark")
-    assert _keyword_match_weights(item, []) == []
+    assert _keyword_matches(item, []) == []
 
 
 def test_match_weights_uses_tier_weight():
     item = _item("RAG at scale needs eval")
-    weights = _keyword_match_weights(item, [("rag", "HIGH"), ("eval", "LOW"), ("absent", "MEDIUM")])
-    assert sorted(weights) == [0.3, 1.0]
+    matches = _keyword_matches(item, [("rag", "HIGH"), ("eval", "LOW"), ("absent", "MEDIUM")])
+    assert sorted(w for _, w in matches) == [0.3, 1.0]
 
 
 def test_score_saturates_at_cap(settings):

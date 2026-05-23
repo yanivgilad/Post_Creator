@@ -355,11 +355,43 @@
       </header>
 
       <main class="content">
+        <div id="llm-cost-bar" style="margin-bottom:14px;padding:9px 16px;border-radius:14px;background:rgba(13,148,136,0.07);border:1px solid rgba(13,148,136,0.15);font-size:12px;color:var(--muted);display:flex;gap:0;flex-wrap:wrap;align-items:center;">
+          <span style="margin-right:16px;">🧠 LLM Usage</span>
+          <span style="margin-right:4px;color:var(--muted);opacity:0.6;">Total:</span>
+          <span style="margin-right:16px;">Calls: <strong id="llm-bar-calls">0</strong></span>
+          <span style="margin-right:16px;">In: <strong id="llm-bar-in">0</strong></span>
+          <span style="margin-right:16px;">Out: <strong id="llm-bar-out">0</strong></span>
+          <span style="margin-right:20px;">Cost: <strong id="llm-bar-cost">$0.0000</strong></span>
+          <span id="llm-bar-last" style="display:none;border-left:1px solid rgba(13,148,136,0.25);padding-left:16px;color:var(--muted);opacity:0.75;">
+            <span style="margin-right:4px;opacity:0.6;">Last call:</span>
+            <span style="margin-right:12px;">In: <strong id="llm-bar-last-in">0</strong></span>
+            <span style="margin-right:12px;">Out: <strong id="llm-bar-last-out">0</strong></span>
+            <span>Cost: <strong id="llm-bar-last-cost">$0.0000</strong></span>
+          </span>
+        </div>
         {% if message %}
         <div class="banner">{{ message.replace('-', ' ').title() }}</div>
         {% endif %}
         {% block content %}{% endblock %}
       </main>
     </div>
+    <script>
+    (function() {
+      fetch('/api/llm-usage').then(function(r) { return r.json(); }).then(function(d) {
+        if (!d) return;
+        var el = function(id) { return document.getElementById(id); };
+        el('llm-bar-calls').textContent = (d.total_calls || 0).toLocaleString();
+        el('llm-bar-in').textContent = (d.total_prompt_tokens || 0).toLocaleString();
+        el('llm-bar-out').textContent = (d.total_completion_tokens || 0).toLocaleString();
+        el('llm-bar-cost').textContent = '$' + Number(d.total_cost_usd || 0).toFixed(4);
+        if (d.last_call) {
+          el('llm-bar-last-in').textContent = (d.last_call.prompt_tokens || 0).toLocaleString();
+          el('llm-bar-last-out').textContent = (d.last_call.completion_tokens || 0).toLocaleString();
+          el('llm-bar-last-cost').textContent = '$' + Number(d.last_call.cost_usd || 0).toFixed(4);
+          el('llm-bar-last').style.display = '';
+        }
+      }).catch(function() {});
+    })();
+    </script>
   </body>
 </html>

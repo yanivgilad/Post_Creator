@@ -87,18 +87,6 @@
         <div class="kpi-label">Raw Items</div>
         <div class="kpi-value" style="font-size:26px;">{{ run.raw_item_count or 0 }}</div>
       </div>
-      <div style="padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,0.7);">
-        <div class="kpi-label">Unique Items</div>
-        <div class="kpi-value" style="font-size:26px;">{{ run.unique_item_count or 0 }}</div>
-      </div>
-      <div style="padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,0.7);">
-        <div class="kpi-label">Ranked Trends</div>
-        <div class="kpi-value" style="font-size:26px;">{{ run.trends | length }}</div>
-      </div>
-      <div style="padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,0.7);">
-        <div class="kpi-label">Scored Items</div>
-        <div class="kpi-value" style="font-size:26px;">{{ (run.all_scored_items or run.trends) | length }}</div>
-      </div>
     </div>
   </section>
 

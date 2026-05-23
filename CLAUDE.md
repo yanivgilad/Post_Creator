@@ -40,7 +40,7 @@ At runtime, `_load_prompt_file` in `src/article_writer/generation/article_genera
 - `docs/ARCHITECTURE.md` — read-first technical map of the repo; includes gotchas.
 - `docs/stages/stage-0X.md` — per-stage spec + Definition of Done.
 
-**Before touching code, read `docs/ARCHITECTURE.md` for gotchas.**
+**Before touching code, read `docs/ARCHITECTURE.md` for gotchas. After every commit that changes behavior, update `docs/ARCHITECTURE.md` to match.**
 
 ## Commands
 

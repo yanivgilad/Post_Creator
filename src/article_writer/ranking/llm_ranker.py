@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 _SYSTEM_PROMPT = (
     "You are a relevance ranker. Given a list of AI/tech news article titles and a set of "
     "topic keywords, rate each article's relevance to those topics on a scale from 1 (irrelevant) "
-    "to 10 (highly relevant). Return ONLY valid JSON — no explanation, no markdown."
+    "to 10 (highly relevant). Return ONLY valid compact JSON (no whitespace) — no explanation, no markdown."
 )
 
 
@@ -42,6 +42,9 @@ def _make_azure_client(settings: Settings):
     )
 
 
+_MAX_LLM_RANK_ITEMS = 200  # GPT-4o output cap ~4096 tokens; 200 items ≈ 3500 tokens
+
+
 def llm_rank(
     trends: list[RankedTrend],
     keywords: list[str],
@@ -61,7 +64,9 @@ def llm_rank(
         return {}
 
     _, model_name = llm_name.split("/", 1)
-    user_prompt = _build_prompt(trends, keywords)
+    candidates = sorted(trends, key=lambda t: t.score, reverse=True)[:_MAX_LLM_RANK_ITEMS]
+    original_indices = {id(t): i for i, t in enumerate(trends)}
+    user_prompt = _build_prompt(candidates, keywords)
 
     try:
         client = _make_azure_client(settings)
@@ -72,13 +77,17 @@ def llm_rank(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.0,
-            max_tokens=512,
+            max_tokens=4096,
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content or ""
         data = json.loads(raw)
         rankings = data.get("rankings", [])
-        return {int(entry["index"]) - 1: float(entry["score"]) for entry in rankings}
+        return {
+            original_indices[id(candidates[int(entry["index"]) - 1])]: float(entry["score"])
+            for entry in rankings
+            if 1 <= int(entry["index"]) <= len(candidates)
+        }
     except Exception as exc:
-        logger.warning("llm_rank failed: %s", exc)
+        logger.warning("llm_rank failed (%s): %s", type(exc).__name__, exc)
         return {}

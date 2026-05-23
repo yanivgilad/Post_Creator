@@ -24,7 +24,7 @@ class RSSSource(SourceAdapter):
     def enabled(self, settings: Settings) -> bool:
         return settings.enable_rss and any(settings.rss_feeds.values())
 
-    def fetch(self, since: datetime, settings: Settings) -> list[SourceItem]:
+    def fetch(self, since: datetime, settings: Settings, *, keywords: list[str] | None = None) -> list[SourceItem]:
         items: dict[str, SourceItem] = {}
         for stream, feeds in settings.rss_feeds.items():
             for feed_url in feeds:
