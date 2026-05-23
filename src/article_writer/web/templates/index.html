@@ -86,8 +86,8 @@
               <span>{{ trend.source_name }}</span>
               <span>Score {{ trend.rank_score or trend.score }}</span>
             </div>
-            <h3><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
-            <p>{{ trend.reason_summary }}</p>
+            <h3 dir="auto"><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
+            <p dir="auto">{{ trend.reason_summary }}</p>
             <div class="actions">
               <a class="button ghost" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
             </div>
@@ -113,8 +113,8 @@
               <span>{{ article.target_outlet }}</span>
               <span>{{ article.llm_name }}</span>
             </div>
-            <h3><a href="/articles/{{ article.id }}">{{ article.title }}</a></h3>
-            <p>{{ article.trend.title }}</p>
+            <h3 dir="auto"><a href="/articles/{{ article.id }}">{{ article.title }}</a></h3>
+            <p dir="auto">{{ article.trend.title }}</p>
           </article>
         {% endfor %}
       </div>

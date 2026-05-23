@@ -25,13 +25,13 @@
             {% endif %}
           </td>
           <td><span class="muted" style="font-size:13px;">{{ trend.source_name }}</span></td>
-          <td>
+          <td dir="auto">
             <a href="{{ trend.url }}" target="_blank" rel="noreferrer" style="color:var(--accent);">{{ trend.title }}</a>
             {% if trend.summary %}
               <p class="muted" style="font-size:13px;margin:4px 0 0;">{{ trend.summary[:160] }}{% if trend.summary | length > 160 %}…{% endif %}</p>
             {% endif %}
           </td>
-          <td style="font-size:13px;color:var(--muted);">{{ trend.reason_summary }}</td>
+          <td dir="auto" style="font-size:13px;color:var(--muted);">{{ trend.reason_summary }}</td>
           <td>
             <a class="button ghost" style="font-size:12px;padding:7px 11px;" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
           </td>

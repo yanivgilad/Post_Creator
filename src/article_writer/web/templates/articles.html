@@ -25,8 +25,8 @@
               <span>{{ article.target_outlet }}</span>
               <span>{{ article.llm_name }}</span>
             </div>
-            <h3><a href="/articles/{{ article.id }}">{{ article.title }}</a></h3>
-            <p class="muted">Based on: {{ article.trend.title }}</p>
+            <h3 dir="auto"><a href="/articles/{{ article.id }}">{{ article.title }}</a></h3>
+            <p class="muted" dir="auto">Based on: {{ article.trend.title }}</p>
             {% if article.metadata.fallback_reason %}
               <p class="muted">{{ article.metadata.fallback_reason }}</p>
             {% endif %}

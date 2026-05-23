@@ -18,9 +18,9 @@
         <span>{{ trend.published_at }}</span>
         <span>Score {{ trend.rank_score }}</span>
       </div>
-      <h3><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
-      <p>{{ trend.summary }}</p>
-      <p class="muted">{{ trend.reason_summary }}</p>
+      <h3 dir="auto"><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
+      <p dir="auto">{{ trend.summary }}</p>
+      <p class="muted" dir="auto">{{ trend.reason_summary }}</p>
     </article>
 
     {% if error %}
@@ -59,7 +59,7 @@
       </label>
       <label>
         Custom Focus For The Post
-        <textarea name="custom_prompt" rows="5" placeholder="Example: Focus on practical adoption risks for engineering teams and avoid hype.">{{ values.custom_prompt or '' }}</textarea>
+        <textarea name="custom_prompt" rows="5" dir="auto" placeholder="Example: Focus on practical adoption risks for engineering teams and avoid hype.">{{ values.custom_prompt or '' }}</textarea>
       </label>
       <div class="actions">
         <button type="submit">Create Article</button>

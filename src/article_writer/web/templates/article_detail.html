@@ -6,7 +6,7 @@
   <section class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
       <div>
-        <h2>{{ article.title }}</h2>
+        <h2 dir="auto">{{ article.title }}</h2>
         <div class="meta">
           <span>{{ article.language }}</span>
           <span>{{ article.target_outlet }}</span>
@@ -25,17 +25,17 @@
         <span>Based on</span>
         <span>{{ article.trend.source_name }}</span>
       </div>
-      <h3><a href="{{ article.trend.url }}" target="_blank" rel="noreferrer">{{ article.trend.title }}</a></h3>
+      <h3 dir="auto"><a href="{{ article.trend.url }}" target="_blank" rel="noreferrer">{{ article.trend.title }}</a></h3>
       {% if article.metadata.fallback_reason %}
         <p class="muted">{{ article.metadata.fallback_reason }}</p>
       {% endif %}
       {% if article.metadata.custom_prompt %}
         <div class="banner" style="margin-top: 12px; margin-bottom: 12px;">
           <strong>Custom focus</strong>
-          <p style="margin: 8px 0 0;">{{ article.metadata.custom_prompt }}</p>
+          <p dir="auto" style="margin: 8px 0 0;">{{ article.metadata.custom_prompt }}</p>
         </div>
       {% endif %}
-      <pre>{{ article.body }}</pre>
+      <pre dir="auto">{{ article.body }}</pre>
     </article>
   </section>
 
