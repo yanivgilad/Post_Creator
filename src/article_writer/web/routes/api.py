@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from article_writer.article_options import normalize_article_language, normalize_article_platform
 from article_writer.config import filter_supported_article_llm_options
 from article_writer.logging_setup import RunLogHandler
+from article_writer.ranking.llm_ranker import llm_rank
 
 
 router = APIRouter(prefix="/api", tags=["api"])
@@ -199,6 +200,50 @@ def summarize_trend(request: Request, trend_id: int, payload: SummarizePayload):
         "usage": usage,
         "cumulative": cumulative,
     }
+
+
+@router.post("/runs/{run_id}/llm-rank")
+async def llm_rank_run(run_id: int, request: Request):
+    store = request.app.state.store
+    settings = request.app.state.settings
+
+    run = store.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    all_trends = run.get("all_scored_items") or run.get("trends") or []
+    if not all_trends:
+        return {"status": "ok", "ranked_count": 0}
+
+    keyword_tuples = store.list_keywords_for_matching()
+    keyword_strings = [kw for kw, _ in keyword_tuples]
+
+    from article_writer.models import RankedTrend, SourceItem
+    from datetime import datetime, timezone
+
+    proxies: list[RankedTrend] = []
+    trend_ids: list[int] = []
+    for t in all_trends:
+        item = SourceItem(
+            source_name=str(t.get("source_name", "")),
+            external_id=str(t.get("external_id", "")),
+            title=str(t.get("title", "")),
+            url=str(t.get("url", "")),
+            summary="",
+            author=None,
+            published_at=t.get("published_at") or datetime.now(timezone.utc),
+        )
+        proxies.append(RankedTrend(
+            source_item=item, score=float(t.get("rank_score", 0)),
+            reason_summary="", evidence=[], supporting_urls=[],
+        ))
+        trend_ids.append(int(t["id"]))
+
+    scores_by_index = llm_rank(proxies, keyword_strings, settings)
+    scores_by_db_id = {trend_ids[idx]: score for idx, score in scores_by_index.items()}
+    store.update_trends_llm_rank(scores_by_db_id)
+
+    return {"status": "ok", "ranked_count": len(scores_by_db_id)}
 
 
 @router.get("/keywords")
