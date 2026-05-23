@@ -42,6 +42,7 @@ class RankedTrend:
     reason_summary: str
     evidence: list[str]
     supporting_urls: list[str]
+    llm_rank_score: float | None = None
 
 
 @dataclass(slots=True)
