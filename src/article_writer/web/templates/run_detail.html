@@ -8,6 +8,7 @@
       <tr>
         <th style="width:40px;">#</th>
         <th style="width:70px;">Score</th>
+        <th style="width:80px;">LLM Score</th>
         <th style="width:90px;">Source</th>
         <th>Title</th>
         <th>Reason</th>
@@ -24,6 +25,13 @@
               <span title="Top ranked" style="color:var(--accent);margin-left:3px;">★</span>
             {% endif %}
           </td>
+          <td>
+            {% if trend.llm_rank_score is not none %}
+              <strong style="color:var(--accent);">{{ "%.1f"|format(trend.llm_rank_score) }}</strong>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
           <td><span class="muted" style="font-size:13px;">{{ trend.source_name }}</span></td>
           <td dir="auto">
             <a href="{{ trend.url }}" target="_blank" rel="noreferrer" style="color:var(--accent);">{{ trend.title }}</a>
@@ -38,7 +46,7 @@
           </td>
         </tr>
         <tr class="trend-summary-row" data-trend-id="{{ trend.id }}" style="display:none;">
-          <td colspan="6" style="padding-top:0;border-bottom:1px solid var(--line);">
+          <td colspan="7" style="padding-top:0;border-bottom:1px solid var(--line);">
             <div class="trend-summary" data-trend-id="{{ trend.id }}" dir="auto" style="padding:12px;border-radius:14px;background:rgba(13,148,136,0.06);border:1px solid rgba(13,148,136,0.18);font-size:13px;"></div>
           </td>
         </tr>
@@ -106,12 +114,20 @@
   {% endif %}
 
   <section class="card" style="margin-top:16px;">
-    <h3 style="margin-top:0;">
-      Collected Items
-      {% if run.all_scored_items %}
-        <span class="muted" style="font-size:14px;font-weight:400;margin-left:8px;">{{ run.all_scored_items | length }} scored</span>
-      {% endif %}
-    </h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+      <h3 style="margin:0;">
+        Collected Items
+        {% if run.all_scored_items %}
+          <span class="muted" style="font-size:14px;font-weight:400;margin-left:8px;">{{ run.all_scored_items | length }} scored</span>
+        {% endif %}
+      </h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:13px;color:var(--muted);">Sort by:</span>
+        <button id="sort-popularity-btn" class="button ghost" style="font-size:12px;padding:7px 12px;" onclick="sortItems('popularity')">Popularity</button>
+        <button id="sort-llm-btn" class="button ghost" style="font-size:12px;padding:7px 12px;" onclick="sortItems('llm')">LLM Relevance</button>
+        <button id="llm-rank-btn" class="button secondary" style="font-size:12px;padding:7px 12px;" data-run-id="{{ run.id }}">Re-rank with LLM</button>
+      </div>
+    </div>
     {% include "_stream_tabs.html" with context %}
     {% set items = run.all_scored_items if run.all_scored_items else run.trends %}
     {% if items %}
@@ -241,6 +257,52 @@
         });
     });
   });
+  // Sort toggle
+  var currentSort = 'popularity';
+  function sortItems(mode) {
+    currentSort = mode;
+    var tables = document.querySelectorAll('table tbody');
+    tables.forEach(function(tbody) {
+      var rows = Array.from(tbody.querySelectorAll('tr:not(.trend-summary-row)'));
+      rows.sort(function(a, b) {
+        var aScore, bScore;
+        if (mode === 'llm') {
+          aScore = parseFloat(a.querySelector('td:nth-child(3)').textContent) || 0;
+          bScore = parseFloat(b.querySelector('td:nth-child(3)').textContent) || 0;
+        } else {
+          aScore = parseFloat(a.querySelector('td:nth-child(2) strong').textContent) || 0;
+          bScore = parseFloat(b.querySelector('td:nth-child(2) strong').textContent) || 0;
+        }
+        return bScore - aScore;
+      });
+      rows.forEach(function(row) { tbody.appendChild(row); });
+    });
+    document.getElementById('sort-popularity-btn').style.background = mode === 'popularity' ? 'var(--accent)' : '';
+    document.getElementById('sort-popularity-btn').style.color = mode === 'popularity' ? 'white' : '';
+    document.getElementById('sort-llm-btn').style.background = mode === 'llm' ? 'var(--accent)' : '';
+    document.getElementById('sort-llm-btn').style.color = mode === 'llm' ? 'white' : '';
+  }
+
+  // Re-rank button
+  var reRankBtn = document.getElementById('llm-rank-btn');
+  if (reRankBtn) {
+    reRankBtn.addEventListener('click', function() {
+      var runId = reRankBtn.dataset.runId;
+      var original = reRankBtn.textContent;
+      reRankBtn.disabled = true;
+      reRankBtn.textContent = 'Ranking...';
+      fetch('/api/runs/' + runId + '/llm-rank', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          reRankBtn.textContent = 'Done (' + data.ranked_count + ' scored)';
+          setTimeout(function() { window.location.reload(); }, 1200);
+        })
+        .catch(function(err) {
+          reRankBtn.textContent = 'Error: ' + err.message;
+          reRankBtn.disabled = false;
+        });
+    });
+  }
 })();
 </script>
 {% endblock %}
