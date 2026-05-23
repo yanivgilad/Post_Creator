@@ -71,11 +71,15 @@
   </div>
 
   <section class="card" style="margin-top: 20px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
       <h2>Latest Top 10 Recommendations</h2>
-      {% if latest_run %}
-        <a class="button secondary" href="/runs/{{ latest_run.id }}">View All Trends</a>
-      {% endif %}
+      <div style="display:flex;gap:8px;align-items:center;">
+        {% if latest_run %}
+          <button id="idx-sort-pop" class="button ghost" style="font-size:12px;padding:6px 11px;" onclick="idxSort('pop')">Popularity</button>
+          <button id="idx-sort-llm" class="button ghost" style="font-size:12px;padding:6px 11px;" onclick="idxSort('llm')">LLM</button>
+          <a class="button secondary" href="/runs/{{ latest_run.id }}">View All Trends</a>
+        {% endif %}
+      </div>
     </div>
     {% if latest_run and latest_run.trends %}
       <div class="list">
@@ -84,7 +88,10 @@
             <div class="meta">
               <span>#{{ loop.index }}</span>
               <span>{{ trend.source_name }}</span>
-              <span>Score {{ trend.rank_score or trend.score }}</span>
+              <span>Popularity {{ "%.2f"|format(trend.rank_score or trend.score or 0) }}</span>
+              {% if trend.llm_rank_score is not none %}
+                <span style="color:var(--accent);">LLM {{ "%.1f"|format(trend.llm_rank_score) }}/10</span>
+              {% endif %}
             </div>
             <h3 dir="auto"><a href="{{ trend.url }}" target="_blank" rel="noreferrer">{{ trend.title }}</a></h3>
             <p dir="auto">{{ trend.reason_summary }}</p>
@@ -218,5 +225,28 @@
     });
   });
 })();
+
+  function idxSort(mode) {
+    var list = document.querySelector('.card .list');
+    if (!list) return;
+    var items = Array.from(list.querySelectorAll('article.item'));
+    items.sort(function(a, b) {
+      function getScore(el) {
+        var spans = el.querySelectorAll('.meta span');
+        for (var i = 0; i < spans.length; i++) {
+          var txt = spans[i].textContent.trim();
+          if (mode === 'pop' && txt.startsWith('Popularity')) return parseFloat(txt.replace('Popularity', '')) || 0;
+          if (mode === 'llm' && txt.startsWith('LLM')) return parseFloat(txt.replace('LLM', '').replace('/10', '')) || 0;
+        }
+        return 0;
+      }
+      return getScore(b) - getScore(a);
+    });
+    items.forEach(function(el) { list.appendChild(el); });
+    document.getElementById('idx-sort-pop').style.background = mode === 'pop' ? 'var(--accent)' : '';
+    document.getElementById('idx-sort-pop').style.color = mode === 'pop' ? 'white' : '';
+    document.getElementById('idx-sort-llm').style.background = mode === 'llm' ? 'var(--accent)' : '';
+    document.getElementById('idx-sort-llm').style.color = mode === 'llm' ? 'white' : '';
+  }
 </script>
 {% endblock %}
