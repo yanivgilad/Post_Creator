@@ -131,6 +131,24 @@ def articles_view(request: Request, run_id: int | None = None, stream: str | Non
     )
 
 
+@router.get("/keywords")
+def keywords_view(request: Request):
+    settings = request.app.state.settings
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "keywords.html",
+        {
+            "keywords": request.app.state.store.list_keywords(),
+            "llm_options": settings.supported_article_llm_options,
+            "default_llm": settings.supported_article_llm_options[0]
+            if settings.supported_article_llm_options
+            else "azure/gpt-4o",
+            "is_running": request.app.state.pipeline.is_running,
+            "tiers": ["HIGH", "MEDIUM", "LOW"],
+        },
+    )
+
+
 @router.get("/runs/live")
 def run_live_view(request: Request):
     state = request.app.state

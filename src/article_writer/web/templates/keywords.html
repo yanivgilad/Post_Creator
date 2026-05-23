@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Keywords{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <h2>Keywords</h2>
+    <p class="muted">
+      Each keyword carries an importance tier — HIGH, MEDIUM, or LOW — that lifts an item's
+      <code>rank_score</code> when it matches the title or summary. Weights: HIGH = 1.0, MEDIUM = 0.6, LOW = 0.3.
+      Tier change applies to the next pipeline run.
+    </p>
+
+    <form id="add-form" class="stack" style="grid-template-columns: 2fr 1fr auto; display:grid; align-items:end; gap:12px; margin-top:12px;">
+      <label>
+        New keyword
+        <input id="add-keyword" type="text" placeholder="e.g. long context kills rag" required />
+      </label>
+      <label>
+        Tier
+        <select id="add-tier">
+          {% for tier in tiers %}
+            <option value="{{ tier }}" {% if tier == "MEDIUM" %}selected{% endif %}>{{ tier }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Add</button>
+    </form>
+    <div id="add-error" class="muted" style="margin-top:8px;color:var(--danger);display:none;"></div>
+  </section>
+
+  <section class="card" style="margin-top:18px;">
+    <h3>Current list</h3>
+    <table id="keywords-table">
+      <thead>
+        <tr>
+          <th>Keyword</th>
+          <th style="width:140px;">Tier</th>
+          <th style="width:120px;">Weight</th>
+          <th style="width:120px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="keywords-body">
+        {% for kw in keywords %}
+          <tr data-id="{{ kw.id }}">
+            <td dir="auto">{{ kw.keyword }}</td>
+            <td>
+              <select class="tier-select" data-id="{{ kw.id }}">
+                {% for tier in tiers %}
+                  <option value="{{ tier }}" {% if tier == kw.tier %}selected{% endif %}>{{ tier }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>{{ "%.2f"|format(kw.weight) }}</td>
+            <td><button type="button" class="button ghost delete-btn" data-id="{{ kw.id }}">Delete</button></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if not keywords %}
+      <div class="empty" id="empty-state">No keywords yet. Add one above or fetch suggestions below.</div>
+    {% endif %}
+  </section>
+
+  <section class="card" style="margin-top:18px;">
+    <h3>LLM suggestions</h3>
+    <p class="muted">Asks the LLM (using the LinkedIn persona + the latest run's top trends) for new keywords with a suggested tier.</p>
+    <div style="display:grid; grid-template-columns: 2fr 1fr auto; gap:12px; align-items:end;">
+      <label>
+        Model
+        <select id="suggest-llm">
+          {% for opt in llm_options %}
+            <option value="{{ opt }}" {% if opt == default_llm %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Count
+        <input id="suggest-count" type="number" min="1" max="20" value="8" />
+      </label>
+      <button type="button" id="suggest-btn">Get suggestions</button>
+    </div>
+    <div id="suggest-status" class="muted" style="margin-top:10px;"></div>
+    <div id="suggest-results" class="list" style="margin-top:14px;"></div>
+    <div id="suggest-usage" class="muted" style="margin-top:10px;font-size:13px;"></div>
+  </section>
+
+  <script>
+    const tiers = {{ tiers | tojson }};
+
+    function tierOptions(selected) {
+      return tiers.map(t => `<option value="${t}"${t===selected?' selected':''}>${t}</option>`).join('');
+    }
+
+    function fmt(weight) { return Number(weight).toFixed(2); }
+
+    function setError(elemId, message) {
+      const el = document.getElementById(elemId);
+      if (!message) { el.style.display = 'none'; el.textContent = ''; return; }
+      el.style.display = 'block'; el.textContent = message;
+    }
+
+    async function refreshList() {
+      const resp = await fetch('/api/keywords');
+      const items = await resp.json();
+      const body = document.getElementById('keywords-body');
+      body.innerHTML = items.map(kw => `
+        <tr data-id="${kw.id}">
+          <td dir="auto">${escapeHtml(kw.keyword)}</td>
+          <td><select class="tier-select" data-id="${kw.id}">${tierOptions(kw.tier)}</select></td>
+          <td>${fmt(kw.weight)}</td>
+          <td><button type="button" class="button ghost delete-btn" data-id="${kw.id}">Delete</button></td>
+        </tr>
+      `).join('');
+      const empty = document.getElementById('empty-state');
+      if (empty) empty.style.display = items.length ? 'none' : 'block';
+      wireRowEvents();
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function wireRowEvents() {
+      document.querySelectorAll('.tier-select').forEach(sel => {
+        sel.addEventListener('change', async (e) => {
+          const id = e.target.dataset.id;
+          const tier = e.target.value;
+          const resp = await fetch(`/api/keywords/${id}`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tier}),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(()=>({detail:'Failed'}));
+            alert('Tier update failed: ' + (err.detail || resp.status));
+          }
+          refreshList();
+        });
+      });
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.target.dataset.id;
+          if (!confirm('Delete this keyword?')) return;
+          const resp = await fetch(`/api/keywords/${id}`, {method: 'DELETE'});
+          if (!resp.ok) {
+            alert('Delete failed: ' + resp.status);
+          }
+          refreshList();
+        });
+      });
+    }
+
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setError('add-error', '');
+      const keyword = document.getElementById('add-keyword').value.trim();
+      const tier = document.getElementById('add-tier').value;
+      if (!keyword) return;
+      const resp = await fetch('/api/keywords', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({keyword, tier}),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({detail:'Failed'}));
+        setError('add-error', err.detail || 'Add failed');
+        return;
+      }
+      document.getElementById('add-keyword').value = '';
+      refreshList();
+    });
+
+    document.getElementById('suggest-btn').addEventListener('click', async () => {
+      const status = document.getElementById('suggest-status');
+      const results = document.getElementById('suggest-results');
+      const usage = document.getElementById('suggest-usage');
+      status.textContent = 'Asking the LLM...';
+      results.innerHTML = '';
+      usage.textContent = '';
+      const count = parseInt(document.getElementById('suggest-count').value, 10) || 8;
+      const llm_name = document.getElementById('suggest-llm').value;
+      const resp = await fetch('/api/keywords/suggestions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({count, llm_name}),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({detail:'Failed'}));
+        status.textContent = 'Failed: ' + (err.detail || resp.status);
+        return;
+      }
+      const data = await resp.json();
+      status.textContent = `Got ${data.suggestions.length} suggestion(s).`;
+      results.innerHTML = data.suggestions.map((s, idx) => `
+        <div class="item" data-idx="${idx}">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+            <div>
+              <div dir="auto"><strong>${escapeHtml(s.keyword)}</strong> <span class="muted">— ${escapeHtml(s.suggested_tier)}</span></div>
+              <div class="muted" dir="auto">${escapeHtml(s.reasoning || '')}</div>
+            </div>
+            <button type="button" class="add-suggestion" data-keyword="${escapeHtml(s.keyword)}" data-tier="${escapeHtml(s.suggested_tier)}">Add</button>
+          </div>
+        </div>
+      `).join('');
+      results.querySelectorAll('.add-suggestion').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const keyword = e.target.dataset.keyword;
+          const tier = e.target.dataset.tier;
+          const r = await fetch('/api/keywords', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({keyword, tier}),
+          });
+          if (!r.ok) {
+            const err = await r.json().catch(()=>({detail:'Failed'}));
+            alert('Add failed: ' + (err.detail || r.status));
+            return;
+          }
+          e.target.closest('.item').remove();
+          refreshList();
+        });
+      });
+      if (data.usage) {
+        usage.textContent = `This call: ${data.usage.prompt_tokens || 0} prompt + ${data.usage.completion_tokens || 0} completion tokens.`;
+      }
+      if (data.cumulative) {
+        const cost = data.cumulative.total_cost_usd;
+        if (typeof cost === 'number') {
+          usage.textContent += ` Cumulative cost: $${cost.toFixed(4)}.`;
+        }
+      }
+    });
+
+    wireRowEvents();
+  </script>
+{% endblock %}
