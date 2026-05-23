@@ -34,6 +34,12 @@
           <td dir="auto" style="font-size:13px;color:var(--muted);">{{ trend.reason_summary }}</td>
           <td>
             <a class="button ghost" style="font-size:12px;padding:7px 11px;" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
+            <button type="button" class="button ghost summarize-btn" data-trend-id="{{ trend.id }}" style="font-size:12px;padding:7px 11px;margin-top:6px;">Summarize</button>
+          </td>
+        </tr>
+        <tr class="trend-summary-row" data-trend-id="{{ trend.id }}" style="display:none;">
+          <td colspan="6" style="padding-top:0;border-bottom:1px solid var(--line);">
+            <div class="trend-summary" data-trend-id="{{ trend.id }}" dir="auto" style="padding:12px;border-radius:14px;background:rgba(13,148,136,0.06);border:1px solid rgba(13,148,136,0.18);font-size:13px;"></div>
           </td>
         </tr>
       {% endfor %}
@@ -168,4 +174,45 @@
       <div class="empty">No items for this run.</div>
     {% endif %}
   </section>
+
+<script>
+(function () {
+  document.querySelectorAll('.summarize-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var trendId = btn.dataset.trendId;
+      var buttons = document.querySelectorAll('.summarize-btn[data-trend-id="' + trendId + '"]');
+      var rows = document.querySelectorAll('.trend-summary-row[data-trend-id="' + trendId + '"]');
+      var panels = document.querySelectorAll('.trend-summary[data-trend-id="' + trendId + '"]');
+      if (!panels.length) return;
+      var originalLabel = btn.textContent;
+      buttons.forEach(function (b) { b.disabled = true; b.textContent = 'Summarizing...'; });
+      rows.forEach(function (r) { r.style.display = ''; });
+      panels.forEach(function (p) { p.style.color = ''; p.textContent = 'Summarizing...'; });
+      fetch('/api/trends/' + trendId + '/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+        .then(function (r) {
+          if (!r.ok) {
+            return r.json().then(function (e) { throw new Error(e.detail || r.statusText); });
+          }
+          return r.json();
+        })
+        .then(function (data) {
+          panels.forEach(function (p) { p.textContent = data.summary; });
+        })
+        .catch(function (err) {
+          panels.forEach(function (p) {
+            p.textContent = 'Summarization failed: ' + err.message;
+            p.style.color = 'var(--danger)';
+          });
+        })
+        .finally(function () {
+          buttons.forEach(function (b) { b.disabled = false; b.textContent = originalLabel; });
+        });
+    });
+  });
+})();
+</script>
 {% endblock %}

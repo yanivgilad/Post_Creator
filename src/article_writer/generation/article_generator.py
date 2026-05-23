@@ -226,6 +226,121 @@ class ManualArticleGenerator:
             metadata=metadata,
         )
 
+    def summarize(
+        self,
+        trend: dict[str, Any],
+        *,
+        language: str,
+        llm_name: str,
+        settings: Settings,
+    ) -> str:
+        system_prompt = (
+            f"You write short factual summaries of AI/tech items for a senior tech leader. "
+            f"Write 2-3 short sentences in {language}. "
+            f"No preamble, no hype, no marketing language. Concrete facts only. "
+            f"Output only the summary text, nothing else."
+        )
+        title = str(trend.get("title") or "")
+        source_summary = str(trend.get("summary") or "")
+        url = str(trend.get("url") or "")
+        source_name = str(trend.get("source_name") or "")
+        user_prompt = (
+            f"Source: {source_name}\n"
+            f"Title: {title}\n"
+            f"URL: {url}\n"
+            f"Existing source summary: {source_summary}\n\n"
+            f"Summarize in {language} in 2-3 short sentences."
+        )
+        return self._chat(
+            system_prompt,
+            user_prompt,
+            llm_name=llm_name,
+            settings=settings,
+            temperature=0.3,
+            max_tokens=300,
+        )
+
+    def _chat(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        llm_name: str,
+        settings: Settings,
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
+        provider_name, model_name = self._parse_model_name(llm_name)
+        if provider_name == "azure":
+            if not (
+                settings.azure_openai_api_key
+                and settings.azure_openai_endpoint
+                and settings.azure_openai_api_version
+            ):
+                raise RuntimeError(
+                    "Azure OpenAI is not configured — set ARTICLE_WRITER_AZURE_OPENAI_* in .env"
+                )
+            from openai import AzureOpenAI
+
+            client = AzureOpenAI(
+                api_key=settings.azure_openai_api_key,
+                azure_endpoint=settings.azure_openai_endpoint,
+                api_version=settings.azure_openai_api_version,
+            )
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            content = (response.choices[0].message.content or "").strip()
+            if not content:
+                raise RuntimeError("Azure OpenAI returned empty content")
+            return content
+        if provider_name == "google":
+            if not settings.gemini_api_key:
+                raise RuntimeError("No Gemini API key is configured.")
+            payload = {
+                "system_instruction": {"parts": [{"text": system_prompt}]},
+                "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+                "generationConfig": {
+                    "temperature": temperature,
+                    "maxOutputTokens": max_tokens,
+                },
+            }
+            request = Request(
+                (
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{model_name}:generateContent?key={settings.gemini_api_key}"
+                ),
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urlopen(request, timeout=60) as response:
+                    raw = json.loads(response.read().decode("utf-8", errors="replace"))
+            except HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace")
+                raise RuntimeError(f"status {exc.code}: {body[:180]}") from exc
+            except URLError as exc:
+                raise RuntimeError(str(exc.reason)) from exc
+            parts = raw.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+            content = "\n\n".join(
+                part.get("text", "").strip()
+                for part in parts
+                if isinstance(part, dict) and part.get("text", "").strip()
+            ).strip()
+            if not content:
+                raise RuntimeError("Gemini returned empty content")
+            return content
+        raise RuntimeError(
+            f"Direct provider '{provider_name}' is not implemented yet for model '{llm_name}'."
+        )
+
     def _generate_with_provider(
         self,
         trend: dict[str, Any],

@@ -90,7 +90,9 @@
             <p dir="auto">{{ trend.reason_summary }}</p>
             <div class="actions">
               <a class="button ghost" href="/articles/new?trend_id={{ trend.id }}">Create Article</a>
+              <button type="button" class="button ghost summarize-btn" data-trend-id="{{ trend.id }}">Summarize</button>
             </div>
+            <div class="trend-summary" data-trend-id="{{ trend.id }}" dir="auto" style="display:none; margin-top:12px; padding:12px; border-radius:14px; background:rgba(13,148,136,0.06); border:1px solid rgba(13,148,136,0.18);"></div>
           </article>
         {% endfor %}
       </div>
@@ -151,6 +153,42 @@
   }
 
   {% if is_running %}startPolling();{% endif %}
+
+  document.querySelectorAll('.summarize-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var trendId = btn.dataset.trendId;
+      var panel = document.querySelector('.trend-summary[data-trend-id="' + trendId + '"]');
+      if (!panel) return;
+      var originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Summarizing...';
+      panel.style.display = '';
+      panel.style.color = '';
+      panel.textContent = 'Summarizing...';
+      fetch('/api/trends/' + trendId + '/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+        .then(function (r) {
+          if (!r.ok) {
+            return r.json().then(function (e) { throw new Error(e.detail || r.statusText); });
+          }
+          return r.json();
+        })
+        .then(function (data) {
+          panel.textContent = data.summary;
+        })
+        .catch(function (err) {
+          panel.textContent = 'Summarization failed: ' + err.message;
+          panel.style.color = 'var(--danger)';
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.textContent = originalLabel;
+        });
+    });
+  });
 })();
 </script>
 {% endblock %}

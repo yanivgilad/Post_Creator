@@ -23,6 +23,11 @@ class ArticleCreatePayload(BaseModel):
     custom_prompt: str | None = None
 
 
+class SummarizePayload(BaseModel):
+    language: str | None = None
+    llm_name: str | None = None
+
+
 def _background_run(pipeline, app_state=None) -> None:
     lines: list[str] = []
     handler: RunLogHandler | None = None
@@ -147,6 +152,32 @@ def create_article(request: Request, payload: ArticleCreatePayload):
         raise HTTPException(status_code=502, detail=f"Article generation failed: {exc}") from exc
     article_id = request.app.state.store.create_article(article)
     return request.app.state.store.get_article(article_id)
+
+
+@router.post("/trends/{trend_id}/summarize")
+def summarize_trend(request: Request, trend_id: int, payload: SummarizePayload):
+    trend = request.app.state.store.get_trend(trend_id)
+    if trend is None:
+        raise HTTPException(status_code=404, detail="Trend not found")
+    settings = request.app.state.settings
+    supported = settings.supported_article_llm_options
+    llm_name = payload.llm_name or (supported[0] if supported else "azure/gpt-4o")
+    if llm_name not in supported:
+        raise HTTPException(status_code=400, detail="Choose a supported LLM target.")
+    try:
+        language = normalize_article_language(payload.language or "Hebrew")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
+        summary = request.app.state.article_generator.summarize(
+            trend,
+            language=language,
+            llm_name=llm_name,
+            settings=settings,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Summarization failed: {exc}") from exc
+    return {"summary": summary, "language": language, "llm_name": llm_name}
 
 
 @router.get("/config")
