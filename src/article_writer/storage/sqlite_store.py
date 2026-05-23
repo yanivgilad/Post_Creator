@@ -12,6 +12,11 @@ from article_writer.config import Settings
 from article_writer.models import ArticleArtifact, PipelineSnapshot
 
 
+TIER_WEIGHTS: dict[str, float] = {"LOW": 0.3, "MEDIUM": 0.6, "HIGH": 1.0}
+TIER_ORDER: dict[str, int] = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+VALID_TIERS = frozenset(TIER_WEIGHTS.keys())
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -87,6 +92,16 @@ class ArticleRecord(Base):
     metadata_json: Mapped[str] = mapped_column(Text, default="{}")
 
     trend: Mapped[TrendRecord] = relationship(back_populates="articles")
+
+
+class KeywordRecord(Base):
+    __tablename__ = "keywords"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    keyword: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    tier: Mapped[str] = mapped_column(String(8), default="MEDIUM", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class SQLiteStore:
@@ -349,6 +364,105 @@ class SQLiteStore:
             "title": row.title,
             "body": row.body,
             "metadata": json.loads(row.metadata_json),
+        }
+
+    def list_keywords(self) -> list[dict[str, object]]:
+        from sqlalchemy import case
+
+        tier_rank = case(
+            {"HIGH": 3, "MEDIUM": 2, "LOW": 1},
+            value=KeywordRecord.tier,
+            else_=0,
+        )
+        with self.session() as session:
+            rows = session.scalars(
+                select(KeywordRecord).order_by(tier_rank.desc(), KeywordRecord.created_at.asc())
+            ).all()
+            return [self._serialize_keyword(row) for row in rows]
+
+    def list_keywords_for_matching(self) -> list[tuple[str, str]]:
+        with self.session() as session:
+            rows = session.scalars(select(KeywordRecord)).all()
+            return [(row.keyword, row.tier) for row in rows]
+
+    def create_keyword(self, keyword: str, tier: str = "MEDIUM") -> dict[str, object]:
+        normalized = self._normalize_keyword(keyword)
+        normalized_tier = self._normalize_tier(tier)
+        with self.session() as session:
+            existing = session.scalars(
+                select(KeywordRecord).where(KeywordRecord.keyword == normalized)
+            ).first()
+            if existing is not None:
+                raise ValueError(f"Keyword already exists: {normalized}")
+            record = KeywordRecord(keyword=normalized, tier=normalized_tier)
+            session.add(record)
+            session.commit()
+            return self._serialize_keyword(record)
+
+    def update_keyword_tier(self, keyword_id: int, tier: str) -> dict[str, object] | None:
+        normalized_tier = self._normalize_tier(tier)
+        with self.session() as session:
+            record = session.get(KeywordRecord, keyword_id)
+            if record is None:
+                return None
+            record.tier = normalized_tier
+            record.updated_at = datetime.now(timezone.utc)
+            session.commit()
+            return self._serialize_keyword(record)
+
+    def delete_keyword(self, keyword_id: int) -> bool:
+        with self.session() as session:
+            record = session.get(KeywordRecord, keyword_id)
+            if record is None:
+                return False
+            session.delete(record)
+            session.commit()
+            return True
+
+    def seed_keywords_if_empty(self, seed: Iterable[str]) -> int:
+        with self.session() as session:
+            existing = session.scalar(select(KeywordRecord).limit(1))
+            if existing is not None:
+                return 0
+            now = datetime.now(timezone.utc)
+            inserted = 0
+            seen: set[str] = set()
+            for raw in seed:
+                normalized = self._normalize_keyword(raw)
+                if not normalized or normalized in seen:
+                    continue
+                seen.add(normalized)
+                session.add(KeywordRecord(keyword=normalized, tier="MEDIUM", created_at=now, updated_at=now))
+                inserted += 1
+            session.commit()
+            return inserted
+
+    @staticmethod
+    def _normalize_keyword(keyword: str) -> str:
+        if not isinstance(keyword, str):
+            raise ValueError("Keyword must be a string")
+        trimmed = keyword.strip().lower()
+        if not trimmed:
+            raise ValueError("Keyword cannot be empty")
+        return trimmed
+
+    @staticmethod
+    def _normalize_tier(tier: str) -> str:
+        if not isinstance(tier, str):
+            raise ValueError("Tier must be a string")
+        normalized = tier.strip().upper()
+        if normalized not in VALID_TIERS:
+            raise ValueError(f"Invalid tier: {tier!r}. Expected one of {sorted(VALID_TIERS)}")
+        return normalized
+
+    def _serialize_keyword(self, row: KeywordRecord) -> dict[str, object]:
+        return {
+            "id": row.id,
+            "keyword": row.keyword,
+            "tier": row.tier,
+            "weight": TIER_WEIGHTS[row.tier],
+            "created_at": row.created_at,
+            "updated_at": row.updated_at,
         }
 
     def _serialize_article(self, row: ArticleRecord) -> dict[str, object]:

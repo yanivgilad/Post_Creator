@@ -41,12 +41,16 @@ def main() -> None:
     if args.command == "init-db":
         store = SQLiteStore(settings)
         store.init_db()
+        seeded = store.seed_keywords_if_empty(settings.keywords)
+        if seeded:
+            print(f"Seeded {seeded} keywords at MEDIUM")
         print("Database initialized")
         return
 
     if args.command == "run-once":
         store = SQLiteStore(settings)
         store.init_db()
+        store.seed_keywords_if_empty(settings.keywords)
         pipeline = DailyPipeline(settings, store)
         run_id = pipeline.run("cli")
         print(f"Completed run {run_id}")

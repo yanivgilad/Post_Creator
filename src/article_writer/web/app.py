@@ -26,6 +26,7 @@ def create_app(settings: Settings | None = None, *, start_scheduler: bool = True
     async def lifespan(app: FastAPI):
         store = SQLiteStore(resolved_settings)
         store.init_db()
+        store.seed_keywords_if_empty(resolved_settings.keywords)
         pipeline = DailyPipeline(resolved_settings, store)
         scheduler = SchedulerService(resolved_settings, pipeline)
         usage_tracker = LLMUsageTracker(resolved_settings.data_dir / "llm_usage.json")
