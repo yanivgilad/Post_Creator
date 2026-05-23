@@ -60,6 +60,7 @@ class TrendRecord(Base):
     evidence_json: Mapped[str] = mapped_column(Text, default="[]")
     supporting_urls_json: Mapped[str] = mapped_column(Text, default="[]")
     metadata_json: Mapped[str] = mapped_column(Text, default="{}")
+    llm_rank_score: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
 
     run: Mapped[PipelineRunRecord] = relationship(back_populates="trends")
     articles: Mapped[list[ArticleRecord]] = relationship(back_populates="trend", cascade="all, delete-orphan")
@@ -131,6 +132,8 @@ class SQLiteStore:
                 conn.execute(sa_text("ALTER TABLE trends ADD COLUMN is_ranked INTEGER NOT NULL DEFAULT 1"))
             if "stream" not in trend_cols:
                 conn.execute(sa_text("ALTER TABLE trends ADD COLUMN stream TEXT NOT NULL DEFAULT 'software'"))
+            if "llm_rank_score" not in trend_cols:
+                conn.execute(sa_text("ALTER TABLE trends ADD COLUMN llm_rank_score REAL"))
 
     def create_run(self, triggered_by: str) -> int:
         with self.session() as session:
@@ -349,6 +352,7 @@ class SQLiteStore:
             "published_at": row.published_at,
             "engagement_score": row.engagement_score,
             "rank_score": row.rank_score,
+            "llm_rank_score": row.llm_rank_score,
             "is_ranked": row.is_ranked,
             "reason_summary": row.reason_summary,
             "evidence": json.loads(row.evidence_json),

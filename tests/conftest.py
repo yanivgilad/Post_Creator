@@ -9,8 +9,7 @@ from article_writer.config import Settings
 from article_writer.models import SourceItem, utc_now
 
 
-@pytest.fixture
-def settings(tmp_path):
+def make_settings(tmp_path):
     return Settings(
         host="127.0.0.1",
         port=8000,
@@ -32,44 +31,20 @@ def settings(tmp_path):
         enable_deepmind=False,
         enable_lobsters=False,
         enable_netlify=False,
-        hackernews_queries={"software": ["AI", "LLM", "agent", "open source ai"], "gaming": [], "hardware": []},
-        rss_feeds={
-            "software": [
-                "https://openai.com/news/rss.xml",
-                "https://huggingface.co/blog/feed.xml",
-            ],
-            "gaming": [],
-            "hardware": [],
-        },
-        github_queries={"software": ["llm", "ai agent", "open source ai"], "gaming": [], "hardware": []},
-        reddit_subreddits={"software": ["MachineLearning", "LocalLLaMA", "artificial"], "gaming": [], "hardware": []},
-        lobsters_endpoints={
-            "software": [
-                "https://lobste.rs/t/ai.json",
-                "https://lobste.rs/t/ml.json",
-            ],
-            "gaming": [],
-            "hardware": [],
-        },
-        arxiv_feeds=[
-            "https://rss.arxiv.org/rss/cs.AI",
-            "https://rss.arxiv.org/rss/cs.LG",
-        ],
+        hackernews_queries={"software": ["AI", "LLM"], "gaming": [], "hardware": []},
+        rss_feeds={"software": [], "gaming": [], "hardware": []},
+        github_queries={"software": ["llm"], "gaming": [], "hardware": []},
+        reddit_subreddits={"software": ["MachineLearning"], "gaming": [], "hardware": []},
+        lobsters_endpoints={"software": [], "gaming": [], "hardware": []},
+        arxiv_feeds=[],
         arxiv_stream="software",
-        deepmind_feeds=["https://deepmind.google/blog/rss"],
+        deepmind_feeds=[],
         deepmind_stream="software",
         netlify_stream="software",
         product_hunt_stream="software",
-        keywords=["ai", "llm", "agent", "model", "robotics"],
-        source_weights={
-            "hackernews": 1.0,
-            "reddit": 0.9,
-            "github": 1.1,
-            "product_hunt": 1.0,
-            "rss": 0.8,
-            "fake": 1.3,
-        },
-        article_llm_options=["google/gemini-2.5-pro"],
+        keywords=["ai", "llm", "agent"],
+        source_weights={"hackernews": 1.0, "reddit": 0.9, "github": 1.1},
+        article_llm_options=["azure/gpt-4o"],
         gemini_api_key=None,
         azure_openai_api_key=None,
         azure_openai_endpoint=None,
@@ -80,6 +55,11 @@ def settings(tmp_path):
         linkedin_prompt_file=None,
         reddit_prompt_file=None,
     )
+
+
+@pytest.fixture
+def settings(tmp_path):
+    return make_settings(tmp_path)
 
 
 @pytest.fixture
