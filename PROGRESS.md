@@ -19,7 +19,7 @@ A personal tool that pulls items from interest areas (AI / LLM / RAG) across sel
 |---|-------|--------|--------------------|
 | 0 | Code mapping + first run | `done` | Short `docs/ARCHITECTURE.md` written; `init-db` + `run-once` run successfully; a real feed is visible at `http://127.0.0.1:8000` (live-run portion intentionally deferred to Stage 2) |
 | 1 | Personalization: config + persona | `done` | `sources.json` trimmed to my domains + arXiv enabled; `prompts/linkedin_system_prompt.txt` replaced with Yaniv's persona; a test post sounds like me |
-| 2 | (Optional) Add provider (OpenAI/Claude) | `pending` | New provider branch in `article_generator.py`; post generation succeeds with the key from `.env` |
+| 2 | Add LLM provider (Azure OpenAI) | `done` | Azure OpenAI provider wired (default `azure/gpt-4o`); LinkedIn post generated in Hebrew end-to-end; scheduler off by default |
 | 3 | Sharpen the read+post flow | `pending` | Full manual path works: short summary in feed → open → full summary → create post → language toggle → notes → revision → manual edit → copy button |
 | 4 | (Later/optional) Automatic LinkedIn publishing | `pending` | OAuth + `w_member_social` + approval gate before publishing |
 
@@ -33,7 +33,7 @@ A personal tool that pulls items from interest areas (AI / LLM / RAG) across sel
 
 ## Open questions
 - ~~Does `reddit.py` use OAuth or only public endpoints?~~ → **Answered in Stage 0**: public `.json` only, no OAuth, generic User-Agent. With ~40 subreddits in the current `sources.json`, 429/block risk is real. Stage-1 choice: trim list + unique UA, or switch to OAuth.
-- OpenAI or Claude as primary provider? (Decide in Stage 2)
+- ~~OpenAI or Claude as primary provider?~~ → **Resolved in Stage 2**: neither — Azure OpenAI (Kaleidoo org), default deployment `azure/gpt-4o`. Gemini stays available-but-off (no key configured). Direct OpenAI ruled out by a 401 from the existing key.
 - Should `/articles/{id}` support in-place editing of the body, or stay with "Create Another Version"? (Stage 3)
 - Should "open item" have an internal page with a full summary, or stay link-out only? (Stage 3)
 
@@ -54,4 +54,16 @@ A personal tool that pulls items from interest areas (AI / LLM / RAG) across sel
 - **Keywords:** 85 substring-friendly phrases anchored to LLM/RAG/agents discussions, comparisons, and provocative framings (e.g. "RAG is dead", "long context kills RAG", "you don't need RAG"). No "X just launched" style.
 - **Test post deferred to Stage 2:** end-to-end generation needs a working provider key, and the `.env` has none today. The DoD in `docs/stages/stage-1.md` explicitly allows this deferral.
 - Zero "Amit"/"rzailabs" strings remain under `src/` or `prompts/` (verified via `findstr /S /I /M`).
+- No commit performed by Claude — Yaniv will commit manually after final review.
+
+## Stage 2 notes (done)
+- **Provider — Azure OpenAI, not OpenAI direct:** initial attempt against `api.openai.com` returned 401 — the Kaleidoo key is an Azure OpenAI key. Stage-2 spec was updated before any code landed. `_generate_with_azure_openai` in `article_generator.py` uses `AzureOpenAI` from the `openai` SDK with `api_key + azure_endpoint + api_version` from `.env`. Default deployment: `azure/gpt-4o`.
+- **`config.py`:** `_is_supported_article_llm_option` now accepts both `google/...` and `azure/...`. `DEFAULT_ARTICLE_LLM_OPTIONS = ["azure/gpt-4o", "google/gemini-2.5-pro"]`. Three new `Settings` fields for the Azure trio. Gemini stays available-but-off (no key configured); selecting any provider without its env values raises a clear `RuntimeError`, not a 401.
+- **`.env` loading micro-task:** added `python-dotenv` to `pyproject.toml` and `load_dotenv()` as the first line of `cli.main()`. The project had no env-file loader before this — `os.getenv` would have returned `None` even with `.env` populated, silently breaking the whole provider chain.
+- **Scheduler off by default:** `ARTICLE_WRITER_SCHEDULER_ENABLED` (default `false`) for persistent, `--scheduler` / `--no-scheduler` on `serve` for per-invocation. Wired to `create_app(..., start_scheduler=<bool>)`. Future "turn it on" = one flag, no code change.
+- **CLI convenience:** added `src/article_writer/__main__.py` so `py -m article_writer ...` works on machines where `Scripts/` is not on `PATH` (Windows default).
+- **Docs:** `docs/ARCHITECTURE.md` and `CLAUDE.md` updated for Azure-default, dotenv loading, and scheduler-off-by-default.
+- **Future deferral:** `azure/gpt-5.4` to be added later once the deployment name + api-version are confirmed by the org — one-line config addition, no code change.
+- **Build-artifact cleanup:** `*.egg-info/` added to `.gitignore`; existing `src/article_writer.egg-info/` removed from git tracking (`git rm --cached -r`).
+- **End-to-end milestone:** real LinkedIn post in Hebrew was generated via `azure/gpt-4o`, and Yaniv confirmed it sounds like him.
 - No commit performed by Claude — Yaniv will commit manually after final review.

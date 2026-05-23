@@ -250,6 +250,19 @@ class ManualArticleGenerator:
                 return title, body, "gemini"
             except Exception as exc:
                 raise RuntimeError(f"Gemini request failed: {exc}") from exc
+        if provider_name == "azure":
+            try:
+                title, body = self._generate_with_azure_openai(
+                    trend,
+                    language=language,
+                    target_outlet=target_outlet,
+                    deployment_name=model_name,
+                    settings=settings,
+                    custom_prompt=custom_prompt,
+                )
+                return title, body, "azure_openai"
+            except Exception as exc:
+                raise RuntimeError(f"Azure OpenAI request failed: {exc}") from exc
         raise RuntimeError(
             f"Direct provider '{provider_name}' is not implemented yet for model '{llm_name}'."
         )
@@ -323,6 +336,56 @@ class ManualArticleGenerator:
         ).strip()
         if not content:
             raise RuntimeError("Gemini returned an empty article")
+
+        first_line = content.splitlines()[0].strip()
+        title = first_line.lstrip("# ").strip() if first_line.startswith("#") else str(trend["title"])
+        return title, content
+
+    def _generate_with_azure_openai(
+        self,
+        trend: dict[str, Any],
+        *,
+        language: str,
+        target_outlet: str,
+        deployment_name: str,
+        settings: Settings,
+        custom_prompt: str | None,
+    ) -> tuple[str, str]:
+        if not (
+            settings.azure_openai_api_key
+            and settings.azure_openai_endpoint
+            and settings.azure_openai_api_version
+        ):
+            raise RuntimeError(
+                "Azure OpenAI is not configured — set ARTICLE_WRITER_AZURE_OPENAI_* in .env"
+            )
+
+        from openai import AzureOpenAI
+
+        client = AzureOpenAI(
+            api_key=settings.azure_openai_api_key,
+            azure_endpoint=settings.azure_openai_endpoint,
+            api_version=settings.azure_openai_api_version,
+        )
+        response = client.chat.completions.create(
+            model=deployment_name,
+            messages=[
+                {"role": "system", "content": self._build_system_prompt(target_outlet, settings)},
+                {
+                    "role": "user",
+                    "content": self._build_prompt(
+                        trend,
+                        language=language,
+                        target_outlet=target_outlet,
+                        custom_prompt=custom_prompt,
+                    ),
+                },
+            ],
+            temperature=0.7,
+        )
+        content = (response.choices[0].message.content or "").strip()
+        if not content:
+            raise RuntimeError("Azure OpenAI returned an empty article")
 
         first_line = content.splitlines()[0].strip()
         title = first_line.lstrip("# ").strip() if first_line.startswith("#") else str(trend["title"])

@@ -9,6 +9,7 @@ from typing import Any
 
 
 DEFAULT_ARTICLE_LLM_OPTIONS = [
+    "azure/gpt-4o",
     "google/gemini-2.5-pro",
 ]
 
@@ -128,7 +129,7 @@ def _default_source_catalog() -> dict[str, Any]:
 
 
 def _is_supported_article_llm_option(llm_name: str) -> bool:
-    return llm_name.startswith("google/")
+    return llm_name.startswith("google/") or llm_name.startswith("azure/")
 
 
 def filter_supported_article_llm_options(llm_options: list[str]) -> list[str]:
@@ -272,6 +273,7 @@ class Settings:
     dedup_days: int
     schedule_hour: int
     schedule_minute: int
+    scheduler_enabled: bool
     enable_hackernews: bool
     enable_reddit: bool
     enable_github: bool
@@ -296,6 +298,9 @@ class Settings:
     source_weights: dict[str, float]
     article_llm_options: list[str]
     gemini_api_key: str | None
+    azure_openai_api_key: str | None
+    azure_openai_endpoint: str | None
+    azure_openai_api_version: str | None
     github_token: str | None
     product_hunt_token: str | None
     twitter_prompt_file: str | None
@@ -335,6 +340,7 @@ def get_settings() -> Settings:
         dedup_days=_as_int(os.getenv("ARTICLE_WRITER_DEDUP_DAYS"), 21),
         schedule_hour=_as_int(os.getenv("ARTICLE_WRITER_SCHEDULE_HOUR"), 9),
         schedule_minute=_as_int(os.getenv("ARTICLE_WRITER_SCHEDULE_MINUTE"), 0),
+        scheduler_enabled=_as_bool(os.getenv("ARTICLE_WRITER_SCHEDULER_ENABLED"), False),
         enable_hackernews=_as_json_bool(source_sections["hackernews"].get("enabled"), True),
         enable_reddit=_as_json_bool(source_sections["reddit"].get("enabled"), True),
         enable_github=_as_json_bool(source_sections["github"].get("enabled"), True),
@@ -367,6 +373,9 @@ def get_settings() -> Settings:
             )
         ),
         gemini_api_key=os.getenv("ARTICLE_WRITER_GEMINI_API_KEY") or None,
+        azure_openai_api_key=os.getenv("ARTICLE_WRITER_AZURE_OPENAI_API_KEY") or None,
+        azure_openai_endpoint=os.getenv("ARTICLE_WRITER_AZURE_OPENAI_ENDPOINT") or None,
+        azure_openai_api_version=os.getenv("ARTICLE_WRITER_AZURE_OPENAI_API_VERSION") or None,
         github_token=os.getenv("ARTICLE_WRITER_GITHUB_TOKEN") or None,
         product_hunt_token=os.getenv("ARTICLE_WRITER_PRODUCT_HUNT_TOKEN") or None,
         twitter_prompt_file=os.getenv("ARTICLE_WRITER_TWITTER_PROMPT_FILE") or None,

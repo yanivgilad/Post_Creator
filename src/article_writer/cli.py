@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 
+from dotenv import load_dotenv
 import uvicorn
 
 from article_writer.config import get_settings
@@ -15,9 +16,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Local AI trends website and pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    serve = subparsers.add_parser("serve", help="Start the local website and scheduler")
+    serve = subparsers.add_parser("serve", help="Start the local website (scheduler off by default)")
     serve.add_argument("--host", help="Host override")
     serve.add_argument("--port", type=int, help="Port override")
+    serve.add_argument(
+        "--scheduler",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Override ARTICLE_WRITER_SCHEDULER_ENABLED (--scheduler / --no-scheduler)",
+    )
 
     subparsers.add_parser("init-db", help="Create the local SQLite schema")
     subparsers.add_parser("run-once", help="Execute one pipeline run immediately")
@@ -25,6 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    load_dotenv()
     parser = build_parser()
     args = parser.parse_args()
     settings = get_settings()
@@ -45,7 +53,8 @@ def main() -> None:
         return
 
     if args.command == "serve":
-        app = create_app(settings, start_scheduler=True)
+        start_scheduler = settings.scheduler_enabled if args.scheduler is None else args.scheduler
+        app = create_app(settings, start_scheduler=start_scheduler)
         uvicorn.run(app, host=args.host or settings.host, port=args.port or settings.port)
         return
 

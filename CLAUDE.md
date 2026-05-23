@@ -49,13 +49,13 @@ At runtime, `_load_prompt_file` in `src/article_writer/generation/article_genera
 pip install -e ".[dev]"
 
 # Initialize the SQLite database
-article-writer init-db
+py -m article_writer init-db
 
-# Start web server + background scheduler
-article-writer serve
+# Start web server (scheduler off by default; --scheduler to enable, or ARTICLE_WRITER_SCHEDULER_ENABLED=true in .env)
+py -m article_writer serve
 
 # Trigger a single pipeline run immediately
-article-writer run-once
+py -m article_writer run-once
 
 # Run all tests
 pytest
@@ -72,11 +72,11 @@ Local-first AI/LLM/RAG trend scouting pipeline. Three logical layers: **Ingestio
 
 2. **Ranking** (`ranking/`): SHA-256 dedup on `source_name|normalized_url|slugified_title`, scored using per-source weights, filtered against recent runs. Top-N become `RankedTrend`.
 
-3. **Generation** (`generation/`): **LLM-based** via `article_generator.py`, with per-platform persona prompts (see Personas above). Currently only `google/...` (Gemini) is wired; OpenAI/Claude are Stage 2.
+3. **Generation** (`generation/`): **LLM-based** via `article_generator.py`, with per-platform persona prompts (see Personas above). Default provider is **Azure OpenAI** (`azure/gpt-4o` deployment) via `_generate_with_azure_openai`, using `AzureOpenAI` from the `openai` SDK with `api_key + azure_endpoint + api_version` from `.env`. Gemini (`google/...`) is wired and listed, but available-but-off — no key is configured. Selecting any provider without its env values raises a clear `RuntimeError`, not a 401.
 
 4. **Web** (`web/`): FastAPI + Jinja2. Dashboard at `http://127.0.0.1:8000`.
 
-5. **Scheduler** (`pipeline/`): APScheduler, daily at `ARTICLE_WRITER_SCHEDULE_HOUR:ARTICLE_WRITER_SCHEDULE_MINUTE`.
+5. **Scheduler** (`pipeline/`): APScheduler, daily at `ARTICLE_WRITER_SCHEDULE_HOUR:ARTICLE_WRITER_SCHEDULE_MINUTE`. **Off by default since Stage 2** — enable via `ARTICLE_WRITER_SCHEDULER_ENABLED=true` or `py -m article_writer serve --scheduler`. The dashboard's "Run Now" button works regardless.
 
 ### Key files
 
@@ -97,4 +97,4 @@ SQLiteStore.create_run()
 
 ### Configuration
 
-Copy `.env.example` to `.env` for runtime settings. Edit `sources.json` for source enable flags, queries, feeds, keywords, and weights.
+Copy `.env.example` to `.env` for runtime settings. `.env` is loaded automatically by `python-dotenv` at the top of `cli.main()` (Stage 2), so `os.getenv` calls in `Settings` resolve to the file's values without manual exporting. Edit `sources.json` for source enable flags, queries, feeds, keywords, and weights.

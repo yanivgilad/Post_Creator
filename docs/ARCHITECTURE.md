@@ -25,7 +25,7 @@ Read-first doc, written as part of Stage 0. Three logical layers: **Ingestion �
 - `Settings` is a `@dataclass(frozen=True)`, built by `get_settings()` which is wrapped in `lru_cache` — **loaded once per process lifetime**. Changing `.env` or `sources.json` requires a restart.
 - Sources, keywords, queries, feeds, subreddits, weights — all live in `sources.json` at the repo root, **not in `.env`**. `.env` covers runtime only (host/port/DB/scheduler/keys).
 - Required `.env` values for a minimal run: **none**. Every setting has a default. The DB defaults to `data/article_writer.db`.
-- Optional but meaningful: `ARTICLE_WRITER_GEMINI_API_KEY` (required to generate a post — otherwise `Article generation failed`), `ARTICLE_WRITER_GITHUB_TOKEN` (raises GitHub's API ceiling), `ARTICLE_WRITER_PRODUCT_HUNT_TOKEN` (only if enabling that source — off by default), `ARTICLE_WRITER_LINKEDIN_PROMPT_FILE` (override `prompts/linkedin_system_prompt.txt`).
+- Optional but meaningful: `ARTICLE_WRITER_AZURE_OPENAI_API_KEY` + `_ENDPOINT` + `_API_VERSION` (the active provider for post generation — default deployment `azure/gpt-4o`; loaded automatically from `.env` by `python-dotenv` in `cli.main()`), `ARTICLE_WRITER_GEMINI_API_KEY` (Gemini available-but-off — pick a `google/...` model in the form to use it), `ARTICLE_WRITER_SCHEDULER_ENABLED` (default `false`; see Section 3), `ARTICLE_WRITER_GITHUB_TOKEN` (raises GitHub's API ceiling), `ARTICLE_WRITER_PRODUCT_HUNT_TOKEN` (only if enabling that source — off by default), `ARTICLE_WRITER_LINKEDIN_PROMPT_FILE` (override `prompts/linkedin_system_prompt.txt`).
 - `STREAMS = ("software", "gaming", "hardware")` — a fixed three-stream model. Each item is stored with its `stream` so the dashboard can filter. For a personal AI-only setup, `gaming` and `hardware` are noise.
 
 ---
@@ -39,7 +39,7 @@ Read-first doc, written as part of Stage 0. Three logical layers: **Ingestion �
   4. `rank_items(all_items, settings)` (in `ranking/scorer.py`) returns `ranked` and `all_scored`.
   5. `store.complete_run(run_id, snapshot, source_count)` — persists everything. On exception: `store.fail_run(run_id, errors)` + `raise`.
 - `pipeline/scheduler.py` → `SchedulerService` wraps APScheduler's `BackgroundScheduler` in UTC. Daily `cron` at `schedule_hour:schedule_minute`. `_safe_run` swallows exceptions and logs them.
-- `serve` also starts the scheduler (`start_scheduler=True` in `web/app.py`) — the server doubles as the scheduler host.
+- `serve` can start the scheduler, but **off by default since Stage 2**. Priority: CLI flag → env → `False`. `--scheduler` / `--no-scheduler` on `serve` overrides `ARTICLE_WRITER_SCHEDULER_ENABLED`, which itself defaults to `false`. The CLI passes the resolved bool to `create_app(..., start_scheduler=<bool>)` in `web/app.py`.
 
 ---
 
@@ -99,10 +99,12 @@ Run flow: `create_run` (running) → only log activity during the run → `compl
 - Keywords list rewritten end-to-end: 85 substring-friendly phrases anchored to LLM/RAG/agents discussions, comparisons, and provocative framings (e.g. "RAG is dead", "long context kills RAG", "you don't need RAG"). No "X just launched" style.
 - Out of Stage-1 scope: the generic User-Agent on Reddit is unchanged. With 5 subreddits the 429 risk is lower but not zero. Tracked for a future stage.
 
-**OpenAI/Claude provider** — ❌ **still open (Stage 2).**
-- In `article_generator.py`: `_generate_with_provider` only supports `provider_name == "google"`. Every other provider raises `RuntimeError("Direct provider '...' is not implemented yet")`.
-- `filter_supported_article_llm_options` (`config.py`) deliberately drops any model that does not start with `google/`. So even if `openai/gpt-...` or `anthropic/claude-...` is added to `ARTICLE_WRITER_LLM_OPTIONS`, it will be filtered out. To unlock OpenAI/Claude in Stage 2, **both places** must change.
-- Stage-1 "test post" was deferred to Stage 2: end-to-end generation needs a working provider key, and the `.env` has none today.
+**Provider for post generation** — ✅ **closed in Stage 2.**
+- Active provider is **Azure OpenAI** (Kaleidoo org), NOT direct OpenAI. `_generate_with_azure_openai` in `article_generator.py` uses `from openai import AzureOpenAI` with `api_key + azure_endpoint + api_version` from `.env`. The deployment name is the part after `azure/` in the model id; default is `azure/gpt-4o`.
+- `filter_supported_article_llm_options` now accepts both `google/...` and `azure/...`. `DEFAULT_ARTICLE_LLM_OPTIONS = ["azure/gpt-4o", "google/gemini-2.5-pro"]`.
+- Gemini is available-but-off — no key configured. Missing-config raises a clear `RuntimeError` (`"Azure OpenAI is not configured — set ARTICLE_WRITER_AZURE_OPENAI_* in .env"`), not a 401 stack trace.
+- `.env` is loaded by `load_dotenv()` at the top of `cli.main()` (Stage 2 added `python-dotenv` to `pyproject.toml`). Before this, `os.getenv(...)` returned `None` even with a populated `.env`.
+- Stage-1 "test post" requirement satisfied: a real LinkedIn post in Hebrew was generated end-to-end via `azure/gpt-4o`.
 
 **Full read+post flow** — ❌ **still open (Stage 3).**
 - Missing a "full item summary" view for opening a feed item. Right now "open" = clicking the title which pops out to an external tab. Without an internal read step, `custom_prompt` is written based only on title + short summary.
@@ -115,11 +117,11 @@ Run flow: `create_run` (running) → only log activity during the run → `compl
 ## Local Run — Steps (no code changes)
 
 1. `python -m venv .venv` and activate it (PowerShell: `.\.venv\Scripts\Activate.ps1`).
-2. `pip install -e ".[dev]"`.
-3. `copy .env.example .env` — edit as needed. **No** value is mandatory for a minimal run; add `ARTICLE_WRITER_GEMINI_API_KEY=...` only when you want to generate a post. The key never goes into chat or git.
-4. `article-writer init-db` — creates `data/article_writer.db` and the directory.
-5. Option A — one-off run with no server: `article-writer run-once`. Logs to console, prints `Completed run N` at the end.
-6. Option B — server + scheduler: `article-writer serve` → open `http://127.0.0.1:8000`. The dashboard's "Run Now" button triggers a background run and streams a live log.
+2. `pip install -e ".[dev]"` — pulls `openai` and `python-dotenv` in Stage 2.
+3. `copy .env.example .env` — fill `ARTICLE_WRITER_AZURE_OPENAI_API_KEY` + `_ENDPOINT` + `_API_VERSION` if you want to generate posts (Azure values, not direct OpenAI). Keys never go into chat or git.
+4. `py -m article_writer init-db` — creates `data/article_writer.db` and the directory. (`article-writer.exe` works too if `Scripts/` is on `PATH`; on Windows defaults it usually isn't.)
+5. Option A — one-off pipeline run with no server: `py -m article_writer run-once`. Logs to console, prints `Completed run N` at the end.
+6. Option B — local website: `py -m article_writer serve` → open `http://127.0.0.1:8000`. **Scheduler is off by default since Stage 2**; pass `--scheduler` (or set `ARTICLE_WRITER_SCHEDULER_ENABLED=true` in `.env`) to enable the daily cron. The dashboard's "Run Now" button always triggers a manual run regardless.
 7. Stage-0 Definition of Done: `init-db` and `run-once` run without exceptions, and `http://127.0.0.1:8000` shows a feed with real items.
 
 ---
